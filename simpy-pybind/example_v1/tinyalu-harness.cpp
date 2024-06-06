@@ -98,11 +98,11 @@ class Wrapper
         std::string name;
 
         // 指针数组, 指向各个Signal
-        ISignalAccess *signal[9];
+        ISignalAccess *signal[8];
         // 是否产生波形
         bool waveEnabled;
         //dut
-        VALU top;
+        Vtinyalu top;
         #ifdef TRACE
         VerilatedVcdC tfp;
 	    #endif
@@ -111,15 +111,14 @@ class Wrapper
         {
             simHandle1 = this;
             
-            signal[0] = new CDataSignalAccess(top.clk);
-            signal[1] = new CDataSignalAccess(top.rst);
-            signal[2] = new IDataSignalAccess(top.io_input1);
-            signal[3] = new IDataSignalAccess(top.io_input2);
-            signal[4] = new CDataSignalAccess(top.io_function);
-            signal[5] = new CDataSignalAccess(top.io_stall);
-            signal[6] = new CDataSignalAccess(top.io_kill);
-            signal[7] = new IDataSignalAccess(top.io_output);
-            signal[8] = new CDataSignalAccess(top.io_req_stall);
+            signal[0] = new CDataSignalAccess(top.A);
+            signal[1] = new CDataSignalAccess(top.B);
+            signal[2] = new CDataSignalAccess(top.op);
+            signal[3] = new CDataSignalAccess(top.clk);
+            signal[4] = new CDataSignalAccess(top.reset_n);
+            signal[5] = new CDataSignalAccess(top.start);
+            signal[6] = new CDataSignalAccess(top.done);
+            signal[7] = new SDataSignalAccess(top.result);
             
             time = 0;
             waveEnabled = true;
@@ -134,7 +133,7 @@ class Wrapper
         // 析构函数在对象消亡时即自动被调用
         virtual ~Wrapper()
         {
-            for(int idx = 0;idx < 9;idx++)
+            for(int idx = 0;idx < 8;idx++)
             {
                 delete signal[idx];
             }
