@@ -40,6 +40,7 @@ VERILATOR_FLAGS += -CFLAGS -fPIC
 VERILATOR_FLAGS += -LDFLAGS -shared
 VERILATOR_FLAGS += -CFLAGS -I/usr/include/python3.8
 # VERILATOR_FLAGS += -CFLAGS -fvisibility=hidden -LDFLAGS -fvisibility=hidden -CFLAGS -DTRACE
+VERILATOR_FLAGS += -CFLAGS -DTRACE
 
 $(objdir2)/$(LIB_NAME).so:
 	verilator $(VERILATOR_FLAGS) --Mdir $(objdir2) --cc hdl/$(vsrc) --build --trace --exe $(HARNESS_NAME)

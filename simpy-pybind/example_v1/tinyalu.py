@@ -86,7 +86,7 @@ class Top(Module):
         super().__init__(env, name)
         self.start = self.env.event()
         self.finish = self.env.event()
-        self.dut_thread = self.env.process(self.dut())
+        self.dut_thread = self.env.process(self.dut2())
         self.report_thread = self.env.process(self.report())
         
     def report(self):
@@ -142,7 +142,77 @@ class Top(Module):
 
         self.finish.succeed()
 
- 
+
+    def dut2(self):
+        dut_path = "./hdl/"
+        top_module_file_name = "tinyalu.sv"
+        input_ports_name, output_ports_name, ports_width = verilog_parse(dut_path, top_module_file_name)
+        # print('in:', input_ports_name)
+        # print('out:', output_ports_name)
+        ports_name = input_ports_name + output_ports_name
+        list_n = [i for i in range(len(ports_name))]
+        signal_id = dict(zip(ports_name, list_n))
+
+        yield self.start
+
+        num = 0
+        clk_value = 0
+        reset_value = 0
+
+        A = [i for i in range(20)]
+        B = [i for i in range(20)]
+        op = [1 for i in range(20)]
+
+        wrapper.getHandle('sim_wrapper')
+        wrapper.setValue(signal_id["clk"], 0)
+        wrapper.setValue(signal_id["reset_n"], 0)
+
+        while True:
+
+            wrapper.setValue(signal_id["clk"], not clk_value)
+            clk_value = not clk_value
+
+            if clk_value == 0:
+                wrapper.setValue(signal_id["reset_n"], 1)
+                reset_value = 1
+            
+            if clk_value == 1:
+                if reset_value == 0:
+                    wrapper.setValue(signal_id["start"], 0)
+                    wrapper.setValue(signal_id["A"], 0)
+                    wrapper.setValue(signal_id["B"], 0)
+                    wrapper.setValue(signal_id["op"], 0)
+                else:
+                    if num >= 20:
+                        break
+                    start_value = wrapper.getValue(signal_id["start"])
+                    done_value = wrapper.getValue(signal_id["done"])
+                    if start_value == 1 and done_value == 1:
+                        wrapper.setValue(signal_id["start"], 0)
+                    elif start_value == 0 and done_value == 0:
+                        wrapper.setValue(signal_id["start"], 1)
+                        wrapper.setValue(signal_id["op"], op[num])
+                        wrapper.setValue(signal_id["A"], A[num])
+                        wrapper.setValue(signal_id["B"], B[num])
+                        num = num + 1
+
+            wrapper.eval()
+            wrapper.sleep_cycles(1)
+
+            A_value = wrapper.getValue(signal_id["A"])
+            B_value = wrapper.getValue(signal_id["B"])
+            op_value = wrapper.getValue(signal_id["op"])
+            result_value = wrapper.getValue(signal_id["result"])
+            start_value = wrapper.getValue(signal_id["start"])
+            done_value = wrapper.getValue(signal_id["done"])
+            print("clk: %0d, reset_n: %0d, A: %0d, B: %0d, op: %0d, result: %0d, start: %0d, done: %0d" %(clk_value, reset_value, A_value, B_value, op_value, result_value, start_value, done_value))
+
+        wrapper.deleteHandle()
+
+        self.finish.succeed()
+        pass
+
+
 def test_tinyalu():
     # 创建一个 env 实例
     env = simpy.Environment()

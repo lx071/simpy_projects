@@ -83,12 +83,19 @@ int main(int argc, char **argv)
             }
             else
             {
-                if(num >= 100) break;
-                top->start = 1;
-                top->op = 1;
-                top->A = num % 200;
-                top->B = num % 200;  
-                num ++;
+                if(num >= 20) break;
+                if(top->start && top->done)
+                {
+                    top->start = 0;
+                }
+                else if(!top->start && !top->done)
+                {
+                    top->start = 1;
+                    top->op = 1;
+                    top->A = num % 200;
+                    top->B = num % 200;  
+                    num ++;
+                }
             }
         }
         // printf("time: %0ld, clk: %0d, reset_n: %0d, A: %0d, B: %0d, op: %0d, result: %0d\n", contextp->time(), top->clk, top->reset_n, top->A, top->B, top->op, top->result);
@@ -103,9 +110,9 @@ int main(int argc, char **argv)
         // printf("time: %0ld, clk: %0d, reset_n: %0d, A: %0d, B: %0d, op: %0d, result: %0d\n", contextp->time(), top->clk, top->reset_n, top->A, top->B, top->op, top->result);    
 
         // Read outputs
-        VL_PRINTF("[%" PRId64 "] clk = %0d, rstn = %0d, A = %0d, B = %0d, op = %0d, result = %0d, done = %0d\n",
+        VL_PRINTF("[%" PRId64 "] clk = %0d, rstn = %0d, A = %0d, B = %0d, op = %0d, result = %0d, start = %0d, done = %0d\n",
                     contextp->time(), top->clk, top->reset_n, top->A, top->B,
-                    top->op, top->result, top->done);
+                    top->op, top->result, top->start, top->done);
     }
 
     // Final model cleanup
