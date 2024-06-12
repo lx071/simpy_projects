@@ -1,4 +1,5 @@
 import simpy
+from .uvm_utils import Sequence_Item
 
 class ResponseError(Exception):
     pass
@@ -44,8 +45,8 @@ class tlm_sync_enum:
     TLM_COMPLETED = 2
 
 
-# 通用负载, 对应 SystemC 的 tlm_generic_payload 类
-class Generic_Payload:
+# 通用负载, 对应 SystemC 的 tlm_generic_payload 类和 uvm_pkg 中的 uvm_tlm_generic_payload 类
+class Generic_Payload(Sequence_Item):
     # Generic Payload attributes:
     # m_command, m_address, m_data, m_length, m_response_status, m_byte_enable, m_byte_enable_length, m_streaming_width
     def __init__(self) -> None:        

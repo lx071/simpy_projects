@@ -75,7 +75,7 @@ class Generic_Payload:
     def set_write(self):
         self.m_command = tlm_command.TLM_WRITE_COMMAND
     def get_command(self):
-        return self.m_command;
+        return self.m_command
     def set_command(self, command):
         self.m_command = command
 
