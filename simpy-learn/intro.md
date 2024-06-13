@@ -27,7 +27,8 @@ SimPy 是一个离散事件仿真库。
 01_car.py -- a car process. The car will alternately drive and park for a while  
 02_car.py -- Process Interaction -- Waiting for a Process  
 03_car.py -- Process Interaction -- Interrupting Another Process  
-04_car.py -- Shared Resources -- Basic Resource Usage  
-05_example.py -- an example  
-06_event.py -- Events  
+04_Resource.py -- Shared Resources -- Basic Resource Usage  
+05_Stores.py -- Shared Resources -- Stores  
+06_example.py -- an example  
+07_event.py -- Events  
 

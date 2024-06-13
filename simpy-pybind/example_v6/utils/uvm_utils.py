@@ -6,6 +6,7 @@ class ResponseError(Exception):
 class Sequence_Item:
     # The constructor method for uvm_sequence_item. 
     def __init__(self, name = "uvm_sequence_item"):
+        self.name = name
         self.m_sequence_id = -1
         self.m_use_sequence_info = 0
         self.m_depth = -1

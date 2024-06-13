@@ -187,6 +187,9 @@ class Socket:
         self.invalidate_direct_mem_ptr_func = None
         self.block_event = self.env.event()
 
+        self.get_next_item_func = None
+        self.item_done_func = None
+
     # ===   in class simple_initiator_socket_b   ===
     # 对 socket 进行绑定(对应 SystemC 中 port 与 export 的绑定)
     # initiator.port -> target.export; target.port -> initiator.export
@@ -204,6 +207,24 @@ class Socket:
             assert False, "Bind Error: the other is not a socket"
     
     
+    def register_get_next_item(self, func):
+        self.get_next_item_func = func
+    def register_item_done(self, func):
+        self.item_done_func = func
+    
+    def get_next_item(self):
+        if isinstance(self.other_socket, Socket):
+            return self.other_socket.get_next_item_func()
+        else:
+            assert False, "get_next_item: Invalid Type"
+
+    def item_done(self):
+        if isinstance(self.other_socket, Socket):
+            return self.other_socket.item_done_func()
+        else:
+            assert False, "item_done: Invalid Type"
+
+
     # ===   in class simple_initiator_socket_b   ===
 
     def register_nb_transport_bw(self, func):
