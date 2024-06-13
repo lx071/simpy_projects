@@ -212,15 +212,15 @@ class Socket:
     def register_item_done(self, func):
         self.item_done_func = func
     
-    def get_next_item(self):
+    def get_next_item(self, trans):
         if isinstance(self.other_socket, Socket):
-            return self.other_socket.get_next_item_func()
+            self.other_socket.get_next_item_func(trans)
         else:
             assert False, "get_next_item: Invalid Type"
 
     def item_done(self):
         if isinstance(self.other_socket, Socket):
-            return self.other_socket.item_done_func()
+            self.other_socket.item_done_func()
         else:
             assert False, "item_done: Invalid Type"
 

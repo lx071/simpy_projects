@@ -2,7 +2,6 @@ from utils.tlm_utils import *
 from utils.harness_utils import sim
 import simpy
 import random
-import queue
 
 """
     input [7:0] A,
@@ -20,32 +19,15 @@ config_db = {}
 
 class Sequence(Sequence_Item):
 
-    def __init__(self, name):
+    def __init__(self, env, name):
         super().__init__(name)
-        
-        # # 创建 socket
-        # self.socket = Socket(self)
-
-        self.m_sequencer = None
-
-        # # 创建事件 event
-        # self.init_event = self.env.event()
-        # self.item_done = self.env.event()
-
-        # # 创建进程，用于向 driver 传输数据
-        # # process 函数：传入 ProcessGenerator，返回 Process(self, generator)
-        # self.trans2drv_thread = self.env.process(self.transport2drv())
-
-        # self.in1 = []
-        # self.in2 = []
-        # self.op = []
-        # self.res = []
+        self.env = env
 
 
     def start(self, sequencer, parent_sequence = None):
         self.m_sequencer = sequencer
         self.set_item_context(parent_sequence, sequencer)
-        self.body()
+        self.env.process(self.body())
         
 
     def body(self):
@@ -53,16 +35,16 @@ class Sequence(Sequence_Item):
         # in2 = [random.randrange(0, 20) for i in range(20)]
         item = self.create_item()
         self.start_item(item, self.m_sequencer)
-
         payload = {
             'in1': 2,
             'in2': 3,
             'op': 1,
         }
         item.set_data_ptr(payload)
-        item.set_response_status( tlm_response_status.TLM_INCOMPLETE_RESPONSE, self.m_sequencer.socket ); # Mandatory initial value
-        
-        self.finish_item(item)
+        yield self.env.process(self.finish_item(item))
+        print("body_end")
+        yield self.env.timeout(0)
+
 
     def create_item(self):
         trans = Generic_Payload()
@@ -71,10 +53,12 @@ class Sequence(Sequence_Item):
             'in2': 0,
             'op': 0,
         }
+        trans.set_data_ptr(payload)
         return trans
     
 
     def start_item(self, item, sequencer):
+        print("Sequence::start_item")
         item.set_item_context(self, sequencer)
         # self.m_sequencer.wait_for_grant(this, set_priority)
         '''a user-definable callback task that is called ~on the parent sequence~ after the sequencer has selected this sequence, and before the item is randomized.''' 
@@ -83,7 +67,7 @@ class Sequence(Sequence_Item):
 
 
     def finish_item(self, item):
-
+        print("Sequence::finish_item")
         sequencer = item.get_sequencer()
         if sequencer == None:
             # uvm_report_fatal("STRITM", "sequence_item has null sequencer", UVM_NONE);
@@ -92,13 +76,16 @@ class Sequence(Sequence_Item):
         
         '''a user-definable callback function that is called after the sequence item has been randomized, and just before the item is sent to the driver.'''        
         # mid_do(item); 
-        sequencer.send_request(self, item)
-        sequencer.wait_for_item_done(self, -1)
+        print("sequencer:", sequencer)
+        yield self.env.process(sequencer.send_request(self, item))
+        yield self.env.process(sequencer.wait_for_item_done(self, -1))
         '''a user-definable callback function that is called after the driver has indicated that it has completed the item, using either this item_done or put methods.'''
         # post_do(item);
+        print("Sequence::finish_item_end")
 
 
     def send_request(self, request, rerandomize = 0):
+        print("Sequence::send_request")
         if self.m_sequencer == None:
             # uvm_report_fatal("SSENDREQ", "Null m_sequencer reference", UVM_NONE);
             print("FATAL:", "Null m_sequencer reference")
@@ -112,52 +99,6 @@ class Sequence(Sequence_Item):
             print("FATAL:", "Null m_sequencer reference")
             raise ResponseError("Null m_sequencer reference")
         self.m_sequencer.wait_for_item_done(self, transaction_id)
-
-
-    # # 数据初始化；触发 init_event 事件
-    # def src_in(self, in1, in2, op_, res_):
-    #     self.in1 = in1
-    #     self.in2 = in2
-    #     self.op = op_
-    #     self.res = res_
-    #     self.init_event.succeed()
-
-    
-    # # 向 driver 传送数据，in1、in2、op
-    # def transport2drv(self):
-
-    #     # 等待 数据初始化
-    #     yield self.init_event
-        
-    #     trans = Generic_Payload()
-    #     delay = 1
-        
-    #     for i in range(len(self.op)):
-            
-    #         payload = {
-    #             'in1': self.in1[i],
-    #             'in2': self.in2[i],
-    #             'op': self.op[i],
-    #         }
-
-    #         trans.set_data_ptr( payload )
-    #         trans.set_response_status( tlm_response_status.TLM_INCOMPLETE_RESPONSE, self.socket ); # Mandatory initial value
-
-    #         # 取出一组数据，发送给 alu
-    #         yield self.env.process(self.socket.b_transport(trans, delay))
-
-    #         # Realize the delay annotated onto the transport call
-    #         yield self.env.timeout(0)
-
-    #     payload = {
-    #         'exit': True
-    #     }
-    #     trans.set_data_ptr( payload )
-    #     trans.set_response_status( tlm_response_status.TLM_INCOMPLETE_RESPONSE, self.socket ); # Mandatory initial value
-    #     yield self.env.process(self.socket.b_transport(trans, delay))
-        
-    #     # Realize the delay annotated onto the transport call
-    #     yield self.env.timeout(0)
 
 
 class Sequencer(Module):
@@ -187,8 +128,8 @@ class Sequencer(Module):
 
         self.item_done_e = self.env.event()
 
-
-    def get_next_item(self):
+    def get_next_item(self, t):
+        print("Sequencer::get_next_item")
         if self.get_next_item_called == 1:
             # uvm_report_error(get_full_name(), "Get_next_item called twice without item_done or get in between", UVM_NONE);
             print("ERROR:", "Get_next_item called twice without item_done or get in between")
@@ -201,10 +142,13 @@ class Sequencer(Module):
         self.sequence_item_requested = 1
         self.get_next_item_called = 1
         # self.m_req_fifo.peek(t)
-        item = yield self.store.get()
-        return item
+        
+        t = yield self.store.get()
+        print("payload:", t.get_data_ptr)
+        # return item
 
     def item_done(self, item = None):
+        print("Sequencer::item_done")
         self.sequence_item_requested = 0
         self.get_next_item_called = 0
 
@@ -213,7 +157,8 @@ class Sequencer(Module):
         if item != None:
             self.put_response(item)
 
-    def send_request(self, sequence_ptr, t: Sequence_Item, rerandomize = 0):
+    def send_request(self, sequence_ptr, t: Generic_Payload, rerandomize = 0):
+        print("Sequencer::send_request")
         t.set_sequencer(self)
         # if self.m_req_fifo.try_put(t) != 1:
         yield self.store.put(t)
@@ -226,6 +171,7 @@ class Sequencer(Module):
         sequence_ptr.put_response(t)
 
     def wait_for_item_done(self, sequence_ptr, transaction_id):
+        print("Sequencer::wait_for_item_done")
         # sequence_id = sequence_ptr.m_get_sqr_sequence_id(self.m_sequencer_id, 1)
         # self.m_wait_for_item_sequence_id = -1
         # self.m_wait_for_item_transaction_id = -1
@@ -243,9 +189,6 @@ class Driver(Module):
         # 创建 socket，与 sequencer 进行连接
         self.socket = Socket(self)
         
-        # 函数注册，用于从 sequencer 接收数据
-        # self.socket.register_b_transport(self.recv_from_seqr)
-        
         self.run_thread = self.env.process(self.run())
         self.bfm_thread = self.env.process(self.bfm())
 
@@ -260,31 +203,15 @@ class Driver(Module):
         self.res = [0] * 20
 
 
-    # 从 sequencer 接收数据，由 sequencer.socket.b_transport(trans, delay) 调用
-    def recv_from_seqr(self, trans, delay):
-        payload = trans.get_data_ptr()
-        if 'exit' in payload.keys():
-            self.exit.succeed()
-            trans.set_response_status(tlm_response_status.TLM_OK_RESPONSE, self.socket.other_socket)
-            return
-        self.input1 = payload['in1']
-        self.input2 = payload['in2']
-        self.op = payload['op']
-        # print(self.input1, self.input2, self.op)
-
-        # 数据接收完毕
-        self.get_item.succeed()
-        self.get_item = self.env.event()
-        yield self.item_done 
-        trans.set_response_status(tlm_response_status.TLM_OK_RESPONSE, self.socket.other_socket)
-        yield self.env.timeout(0)
-
     def run(self):
-        item = self.socket.get_next_item()
+        item = Generic_Payload()
+        self.socket.get_next_item(item)
         yield self.env.timeout(5)
-        print(item)
+        payload = item.get_data_ptr()
+
+        print("payload:", payload)
         self.socket.item_done()
-        pass
+
 
     def bfm(self):
         top = self.simContext
@@ -384,8 +311,9 @@ def test_tinyalu():
     # 创建顶层模块 top，传入 env
     top = Top(env, 'top')
 
-    sequence = Sequence('seq')
+    sequence = Sequence(env, 'seq')
     sequence.start(top.sequencer)
+    print("XXX")
 
     # 运行仿真
     env.run()
