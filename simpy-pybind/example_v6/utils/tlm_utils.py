@@ -214,7 +214,8 @@ class Socket:
     
     def get_next_item(self, trans):
         if isinstance(self.other_socket, Socket):
-            self.other_socket.get_next_item_func(trans)
+            self.env.process(self.other_socket.get_next_item_func(trans))
+            yield self.block_event
         else:
             assert False, "get_next_item: Invalid Type"
 
