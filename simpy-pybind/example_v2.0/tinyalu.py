@@ -60,16 +60,16 @@ class Driver(uvm_driver):
 
         # self.run_thread = self.env.process(self.run())
         
+        self.bfm_thread = self.env.process(self.bfm())
         self.reset_thread = self.env.process(self.reset())
         self.clk_thread = self.env.process(self.clk())
         
-        # self.bfm_thread = self.env.process(self.bfm())
-
         self.get_item_e = self.env.event()
         self.item_done_e = self.env.event()
         self.exit_e = self.env.event()
 
-        self.eval_e = self.env.event()
+        self.reset_e = self.env.event()
+        self.bfm_e = self.env.event()
 
         self.input1 = None
         self.input2 = None
@@ -127,12 +127,11 @@ class Driver(uvm_driver):
         clk_value = 0
         top.setValue("clk", 0)
         
+        cycle = 0
         while True:
-            if self.exit == 1:
+            if cycle >= 20:
+                self.exit = 1
                 break
-
-            # if num >= 20:
-            #     break
             
             top.setValue("clk", not clk_value)
             clk_value = not clk_value
@@ -146,11 +145,40 @@ class Driver(uvm_driver):
             
             io_ports["clk"].edge_event.succeed()
             io_ports["clk"].edge_event = self.env.event()
-            yield self.eval_e
+
+            yield self.reset_e and self.bfm_e
+ 
+            top.eval()
+            # top.sleep_cycles(1)
+            self.print_attr(top)
+
+            cycle += 1
+        top.deleteHandle()
     
 
     def reset(self):
-        print("reset")
+        top = self.dut.simContext
+        io_ports = self.dut.io_ports
+
+        reset_value = 0
+        num = 0
+
+        while reset_value == 0:
+
+            yield io_ports["clk"].edge_event
+            clk_value = top.getValue("clk")
+        
+            if clk_value == 0:
+                top.setValue("reset_n", 1)
+                reset_value = 1
+                self.reset_e.succeed()
+                # self.reset_e = self.env.event()
+            else:
+                self.reset_e.succeed()
+                self.reset_e = self.env.event()
+
+
+    def bfm(self):
         top = self.dut.simContext
         io_ports = self.dut.io_ports
 
@@ -158,37 +186,28 @@ class Driver(uvm_driver):
         num = 0
 
         while True:
-            if num >= 10:
+            if self.exit == 1:
                 break
 
             yield io_ports["clk"].edge_event
             
             clk_value = top.getValue("clk")
-            if clk_value == 0 and reset_value == 0:
-                top.setValue("reset_n", 1)
-                reset_value = 1
-            elif clk_value == 1:
+            reset_value = top.getValue("reset_n")
+            
+            if clk_value == 1 and reset_value == 0:
+                top.setValue("A", 0)
+                top.setValue("B", 0)
+                top.setValue("op", 0)
+                top.setValue("start", 0)
+            elif clk_value == 1 and reset_value == 1:
                 top.setValue("A", num)
                 top.setValue("B", num)
                 top.setValue("op", 1)
+                top.setValue("start", 1)
                 num = num + 1
             
-            top.eval()
-            # top.sleep_cycles(1)
-            self.print_attr(top)
-            
-            self.eval_e.succeed()
-            self.eval_e = self.env.event()
-            
-            pass
-        self.exit = 1
-        top.deleteHandle()
-
-
-    # def bfm(self):
-    #     top = self.dut.simContext
-
-    #     top.deleteHandle()
+            self.bfm_e.succeed()
+            self.bfm_e = self.env.event()
 
 
 class Port:
