@@ -58,26 +58,20 @@ class Driver(uvm_driver):
 
         self.dut = config_db['dut']
 
-        # self.run_thread = self.env.process(self.run())
+        self.bfm_thread = self.env.process(self.bfm_process())
+        self.reset_thread = self.env.process(self.reset_process())
+        self.clk_thread = self.env.process(self.clk_process())
+        self.run_thread = self.env.process(self.run())
         
-        self.bfm_thread = self.env.process(self.bfm())
-        self.reset_thread = self.env.process(self.reset())
-        self.clk_thread = self.env.process(self.clk())
-        
-        self.get_item_e = self.env.event()
         self.item_done_e = self.env.event()
-        self.exit_e = self.env.event()
 
         self.reset_e = self.env.event()
         self.bfm_e = self.env.event()
 
-        self.input1 = None
-        self.input2 = None
-        self.op = None
-        self.output = None
-        self.res = [0] * 20
         self.data = [None]
         self.exit = 0
+
+        self.store = simpy.Store(env, capacity=1)
 
 
     def print_attr(self, s):
@@ -94,6 +88,7 @@ class Driver(uvm_driver):
                 %(time, clk_value, reset_value, A_value, B_value, op_value, result_value, start_value, done_value))
 
 
+    # run_phase: get_next_item + item_done
     def run(self):
         trans = uvm_tlm_generic_payload()
         trans.set_data_ptr( self.data )
@@ -106,21 +101,16 @@ class Driver(uvm_driver):
             print("payload:", payload)
 
             if 'exit' in payload.keys():
-                self.exit_e.succeed()
+                self.exit = 1
                 trans.set_response_status(tlm_response_status.TLM_OK_RESPONSE, self.socket.other_socket)
-                return
+                break
 
-            self.input1 = payload['in1']
-            self.input2 = payload['in2']
-            self.op = payload['op']
-
-            self.get_item_e.succeed()
-            self.get_item_e = self.env.event()
+            yield self.store.put(payload)
             yield self.item_done_e
             self.socket.item_done()
 
 
-    def clk(self):
+    def clk_process(self):
         top = self.dut.simContext
         io_ports = self.dut.io_ports
         
@@ -129,40 +119,30 @@ class Driver(uvm_driver):
         
         cycle = 0
         while True:
-            if cycle >= 20:
-                self.exit = 1
+            if self.exit == 1:
                 break
             
             top.setValue("clk", not clk_value)
             clk_value = not clk_value
 
-            # if clk_value:
-            #     io_ports["clk"].pos_event.succeed()
-            #     io_ports["clk"].pos_event = self.env.event()
-            # else:
-            #     io_ports["clk"].neg_event.succeed()
-            #     io_ports["clk"].neg_event = self.env.event()
-            
             io_ports["clk"].edge_event.succeed()
             io_ports["clk"].edge_event = self.env.event()
 
             yield self.reset_e and self.bfm_e
  
             top.eval()
-            # top.sleep_cycles(1)
+            top.sleep_cycles(1)
             self.print_attr(top)
 
             cycle += 1
         top.deleteHandle()
     
 
-    def reset(self):
+    def reset_process(self):
         top = self.dut.simContext
         io_ports = self.dut.io_ports
 
         reset_value = 0
-        num = 0
-
         while reset_value == 0:
 
             yield io_ports["clk"].edge_event
@@ -172,18 +152,14 @@ class Driver(uvm_driver):
                 top.setValue("reset_n", 1)
                 reset_value = 1
                 self.reset_e.succeed()
-                # self.reset_e = self.env.event()
             else:
                 self.reset_e.succeed()
                 self.reset_e = self.env.event()
 
 
-    def bfm(self):
+    def bfm_process(self):
         top = self.dut.simContext
         io_ports = self.dut.io_ports
-
-        reset_value = 0
-        num = 0
 
         while True:
             if self.exit == 1:
@@ -194,17 +170,25 @@ class Driver(uvm_driver):
             clk_value = top.getValue("clk")
             reset_value = top.getValue("reset_n")
             
-            if clk_value == 1 and reset_value == 0:
-                top.setValue("A", 0)
-                top.setValue("B", 0)
-                top.setValue("op", 0)
-                top.setValue("start", 0)
-            elif clk_value == 1 and reset_value == 1:
-                top.setValue("A", num)
-                top.setValue("B", num)
-                top.setValue("op", 1)
-                top.setValue("start", 1)
-                num = num + 1
+            if clk_value == 1:
+                if reset_value == 0:
+                    top.setValue("start", 0)
+                    top.setValue("A", 0)
+                    top.setValue("B", 0)
+                    top.setValue("op", 0)
+                else:
+                    start_value = top.getValue("start")
+                    done_value = top.getValue("done")
+                    if start_value == 1 and done_value == 1:
+                        top.setValue("start", 0)
+                        self.item_done_e.succeed()
+                        self.item_done_e = self.env.event()  
+                    elif start_value == 0 and done_value == 0:
+                        payload = yield self.store.get()
+                        top.setValue("start", 1)
+                        top.setValue("op", payload['op'])
+                        top.setValue("A", payload['in1'])
+                        top.setValue("B", payload['in2'])
             
             self.bfm_e.succeed()
             self.bfm_e = self.env.event()

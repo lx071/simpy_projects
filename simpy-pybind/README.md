@@ -8,4 +8,4 @@ example_v1.5: implement Sequencer + Driver + DUT
 example_v1.6: implement Sequence_Item + Sequence + Sequencer + Driver + DUT  
 example_v1.7: implement class uvm_sequence_item + uvm_tlm_generic_payload + uvm_sequence + uvm_sequencer + uvm_driver  
 
-example_v2.0: 
+example_v2.0: implement clk_process + reset_process + bfm_process separately  
