@@ -16,27 +16,73 @@ from simpy.events import AnyOf, AllOf, Event
 
 config_db = {}
 
-def RisingEdge(pin, cycle_event):
-    value = pin.value
-    while (value != 0 or pin.value == value):
-        value = pin.value
-        yield pin.event
+
+def RisingEdge(env, io_ports, pin, cycle_event):
+    value = io_ports[pin].getValue()
+    while True:
+        yield env.process(io_ports["clk"].event.wait())
+        newValue = io_ports[pin].getValue()
+        if (value == 0 and newValue != value):
+            break
+        value = newValue
+        cycle_event.set()
+        cycle_event.clear()
 
 
-def FallingEdge(env, pin, cycle_event):
-    print(pin.event)
-    value = pin.value
-    while (pin.value != 0 or pin.value == value):
-        print("FallingEdge")
-        value = pin.value
-        print("pin.value:", pin.value, " value:", value)
-        
-        yield pin.event
-        print("cycle_event.triggered():", cycle_event.triggered)
-        cycle_event.succeed()
-        cycle_event = env.event()
-        print("cycle_event.triggered():", cycle_event.triggered)
-        
+def FallingEdge(env, io_ports, pin, cycle_event):
+    value = io_ports[pin].getValue()
+    while True:
+        yield env.process(io_ports["clk"].event.wait())
+        newValue = io_ports[pin].getValue()
+        if (newValue == 0 and newValue != value):
+            break
+        value = newValue
+        cycle_event.set()
+        cycle_event.clear()
+       
+
+class Port:
+    def __init__(self, env, name, simContext, io_port = 0):
+        self.env = env
+        self.name = name
+        self.mIOType = io_port
+        self.simContext = simContext
+        self.pos_event = self.env.event()
+        self.neg_event = self.env.event()
+        self.event = Event(env)
+        self.value = self.simContext.getValue(self.name)
+
+
+    def setValue(self, value):
+        if self.mIOType == 1:
+            raise Exception("output type is not allowed to setValue")
+        if value != self.value:
+            self.simContext.setValue(self.name, value)
+            self.value = value
+        self.event.set()
+        self.event.clear()
+
+    
+    def getValue(self):
+        if self.mIOType == 1:   # output
+            self.value = self.simContext.getValue(self.name)
+        return self.value
+
+
+class Event:
+    def __init__(self, env):
+        self.env = env
+        self.event = self.env.event()
+
+    def wait(self):
+        yield self.event
+
+    def set(self):
+        self.event.succeed()
+
+    def clear(self):
+        self.event = self.env.event()
+ 
 
 class Sequence(uvm_sequence):
 
@@ -87,12 +133,13 @@ class Driver(uvm_driver):
         
         self.item_done_e = self.env.event()
 
-        self.reset_e = self.env.event()
-        self.bfm_e = self.env.event()
-        # self.cycle_event = AllOf(self.env, [self.reset_e, self.bfm_e])
+        self.reset_e = Event(env)
+        self.bfm_e = Event(env)
+
+        # self.cycle_event = AllOf(self.env, [self.reset_e.event, self.bfm_e.event])
 
         self.data = [None]
-        self.exit = 0
+        self.exit_e = self.env.event()
 
         self.store = simpy.Store(env, capacity=1)
 
@@ -124,7 +171,7 @@ class Driver(uvm_driver):
             print("payload:", payload)
 
             if 'exit' in payload.keys():
-                self.exit = 1
+                self.exit_e.succeed()
                 trans.set_response_status(tlm_response_status.TLM_OK_RESPONSE, self.socket.other_socket)
                 break
 
@@ -142,114 +189,63 @@ class Driver(uvm_driver):
         
         cycle = 0
         while True:
-            if self.exit == 1:
-                break
-            
+            yield self.env.timeout(0)
             io_ports["clk"].setValue(not clk_value)
             clk_value = not clk_value
 
-            io_ports["clk"].event.succeed()
-            io_ports["clk"].event = self.env.event()
-
-            yield self.reset_e and self.bfm_e
+            yield (self.reset_e.event & self.bfm_e.event) | self.exit_e
+            if self.exit_e.triggered:
+                break
+            # yield self.cycle_event
+            # self.cycle_event = AllOf(self.env, [self.reset_e.event, self.bfm_e.event])
 
             top.eval()
             top.sleep_cycles(1)
-            self.print_attr(top, io_ports)
 
+            self.print_attr(top, io_ports)
             cycle += 1
+            
         top.deleteHandle()
     
 
     def reset_process(self):
         io_ports = self.dut.io_ports
-
+        
         io_ports["reset_n"].setValue(0)
-        print("reset_process")
-        print(io_ports["clk"].event)
-        yield self.env.process(FallingEdge(self.env, self.dut.io_ports["clk"], self.reset_e))
+        yield self.env.process(FallingEdge(self.env, self.dut.io_ports, "clk", self.reset_e))
+        self.reset_e.set()
         io_ports["reset_n"].setValue(1)
-        # self.reset_e.succeed()
-
-        # reset_value = 0
-        # while reset_value == 0:
-
-        #     yield io_ports["clk"].event
-        #     clk_value = io_ports["clk"].getValue()
-
-        #     if clk_value == 0:
-        #         io_ports["reset_n"].setValue(1)
-        #         reset_value = 1
-        #         self.reset_e.succeed()
-        #     else:
-        #         io_ports["reset_n"].setValue(0)
-        #         self.reset_e.succeed()
-        #         self.reset_e = self.env.event()
 
 
     def bfm_process(self):
         io_ports = self.dut.io_ports
 
         while True:
-            if self.exit == 1:
-                break
+            yield self.env.process(RisingEdge(self.env, io_ports, "clk", self.bfm_e))
 
-            yield io_ports["clk"].event
-            
-            clk_value = io_ports["clk"].getValue()
             reset_value = io_ports["reset_n"].getValue()
-            
-            if clk_value == 1:
-                if reset_value == 0:
+            if reset_value == 0:
+                io_ports["start"].setValue(0)
+                io_ports["A"].setValue(0)
+                io_ports["B"].setValue(0)
+                io_ports["op"].setValue(0)
+            else:
+                start_value = io_ports["start"].getValue()
+                done_value = io_ports["done"].getValue()
+                if start_value == 1 and done_value == 1:
                     io_ports["start"].setValue(0)
-                    io_ports["A"].setValue(0)
-                    io_ports["B"].setValue(0)
-                    io_ports["op"].setValue(0)
-                else:
-                    start_value = io_ports["start"].getValue()
-                    done_value = io_ports["done"].getValue()
-                    if start_value == 1 and done_value == 1:
-                        io_ports["start"].setValue(0)
-                        self.item_done_e.succeed()
-                        self.item_done_e = self.env.event()  
-                    elif start_value == 0 and done_value == 0:
-                        payload = yield self.store.get()
-                        io_ports["start"].setValue(1)
-                        io_ports["A"].setValue(payload['in1'])
-                        io_ports["B"].setValue(payload['in2'])
-                        io_ports["op"].setValue(payload['op'])
-            
-            self.bfm_e.succeed()
-            print("self.bfm_e.succeed()")
-            self.bfm_e = self.env.event()
+                    self.item_done_e.succeed()
+                    self.item_done_e = self.env.event()  
+                elif start_value == 0 and done_value == 0:
+                    payload = yield self.store.get()
+                    io_ports["start"].setValue(1)
+                    io_ports["A"].setValue(payload['in1'])
+                    io_ports["B"].setValue(payload['in2'])
+                    io_ports["op"].setValue(payload['op'])
 
+            self.bfm_e.set()
+            self.bfm_e.clear()
 
-
-class Port:
-    def __init__(self, env, name, simContext, io_port = 0):
-        self.env = env
-        self.name = name
-        self.mIOType = io_port
-        self.simContext = simContext
-        self.pos_event = self.env.event()
-        self.neg_event = self.env.event()
-        self.event = self.env.event()
-        self.value = self.simContext.getValue(self.name)
-
-    def setValue(self, value):
-        if self.mIOType == 1:
-            raise Exception("output type is not allowed to setValue")
-        if value != self.value:
-            self.simContext.setValue(self.name, value)
-            self.value = value
-        self.event.succeed()
-        self.event = self.env.event()
-    
-    def getValue(self):
-        if self.mIOType == 1:   # output
-            self.value = self.simContext.getValue(self.name)
-        return self.value
-    
 
 class DUT(Module):
 

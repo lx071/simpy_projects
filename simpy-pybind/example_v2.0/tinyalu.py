@@ -128,7 +128,7 @@ class Driver(uvm_driver):
             io_ports["clk"].edge_event.succeed()
             io_ports["clk"].edge_event = self.env.event()
 
-            yield self.reset_e and self.bfm_e
+            yield self.reset_e & self.bfm_e
  
             top.eval()
             top.sleep_cycles(1)
