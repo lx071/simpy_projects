@@ -1,8 +1,5 @@
-import sys
-sys.path.append("../")
-
+from utils import *
 import simpy
-from simpy_pybind import *
 import random
 
 """
@@ -249,5 +246,11 @@ def test_tinyalu():
     env.run()
 
 
-if __name__ == '__main__':
+def basic_test():
+
     test_tinyalu()
+    pass
+
+
+if __name__ == '__main__':
+    basic_test()

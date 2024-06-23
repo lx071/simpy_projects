@@ -6,6 +6,7 @@ from .tlm_utils import *
 # uvm_object => uvm_transaction => uvm_sequence_item => uvm_tlm_generic_payload 
 # uvm_object => uvm_report_object => uvm_component => uvm_sequencer_base => uvm_sequencer_param_base => uvm_sequencer 
 # uvm_object => uvm_report_object => uvm_component => uvm_driver 
+# uvm_object => uvm_report_object => uvm_component => uvm_monitor
 
 
 # 对应 uvm_pkg 中的 uvm_sequence_item 类
@@ -388,3 +389,10 @@ class uvm_driver(Module):
         self.socket = Socket(self)
         
 
+# 对应 uvm_pkg 中的 uvm_monitor 类
+class uvm_monitor(Module):
+
+    def __init__(self, env, name):
+        super().__init__(env, name)
+
+ 

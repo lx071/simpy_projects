@@ -1,8 +1,8 @@
 src = test_tinyalu.py
 
 run:
-	python $(src)
+	pytest $(src)
 
 clean:
-	rm -rf simulation ../simpy_pybind/__pycache__ ../simpy_pybind/utils/__pycache__
+	rm -rf simulation .pytest_cache __pycache__ ../simpy_pybind/__pycache__ ../simpy_pybind/utils/__pycache__
 

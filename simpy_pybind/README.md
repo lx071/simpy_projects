@@ -7,6 +7,7 @@ example_v1_4: use SimPy to implement TLM_v1ï¼ˆGeneric_Payload + Module + Socketï
 example_v1_5: implement Sequencer + Driver + DUT  
 example_v1_6: implement Sequence_Item + Sequence + Sequencer + Driver + DUT  
 example_v1_7: implement class uvm_sequence_item + uvm_tlm_generic_payload + uvm_sequence + uvm_sequencer + uvm_driver  
+example_v1_8: implement class uvm_monitor  
 
 example_v2_0: implement clk_process + reset_process + bfm_process separately  
 example_v2_1: implement RisingEdge + FallingEdge + class Port + class Event  
