@@ -38,7 +38,8 @@ PYBIND_INCLUDE = $(shell python3 -m pybind11 --includes)
 
 VERILATOR_FLAGS += -CFLAGS -fPIC
 VERILATOR_FLAGS += -LDFLAGS -shared
-VERILATOR_FLAGS += -CFLAGS -I/usr/include/python3.8
+# VERILATOR_FLAGS += -CFLAGS -I/usr/include/python3.8
+VERILATOR_FLAGS += $(foreach var, $(PYBIND_INCLUDE), -CFLAGS $(var))
 # VERILATOR_FLAGS += -CFLAGS -fvisibility=hidden -LDFLAGS -fvisibility=hidden -CFLAGS -DTRACE
 VERILATOR_FLAGS += -CFLAGS -DTRACE
 
