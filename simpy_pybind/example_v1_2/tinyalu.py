@@ -101,14 +101,11 @@ class Top(Module):
         s.setValue("reset_n", 0)
 
         while True:
-
             s.setValue("clk", not clk_value)
             clk_value = not clk_value
-
             if clk_value == 0:
                 s.setValue("reset_n", 1)
-                reset_value = 1
-            
+                reset_value = 1    
             if clk_value == 1:
                 if reset_value == 0:
                     s.setValue("start", 0)
@@ -128,7 +125,6 @@ class Top(Module):
                         s.setValue("A", A[num])
                         s.setValue("B", B[num])
                         num = num + 1
-
             s.eval()
             s.sleep_cycles(1)
 
