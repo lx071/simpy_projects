@@ -2,7 +2,7 @@ import sys
 sys.path.append("../")
 
 import simpy
-from simpy_pybind import *
+from utils import *
 import random
 
 """
