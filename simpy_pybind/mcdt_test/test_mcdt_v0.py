@@ -4,16 +4,6 @@ sys.path.append("../")
 from utils import *
 import simpy
 
-"""
-    input [7:0] A,
-    input [7:0] B,
-    input [2:0] op,
-    input clk,
-    input reset_n,
-    input start,
-    output done,
-    output [15:0] result
-"""
 
 class Module:
     def __init__(self, env, name):
@@ -91,10 +81,6 @@ class Top(Module):
         clk_value = 0
         reset_value = 0
         time = 0
-
-        A = [i for i in range(20)]
-        B = [i for i in range(20)]
-        op = [1 for i in range(20)]
 
         top.getHandle('sim_wrapper')
         top.setValue("clk_i", 0)

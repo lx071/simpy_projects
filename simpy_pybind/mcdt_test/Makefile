@@ -1,4 +1,4 @@
-src = test_mcdt.py
+src = test_mcdt_v1.py
 
 run:
 	pytest $(src)
