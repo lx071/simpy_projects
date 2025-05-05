@@ -109,7 +109,7 @@ class root_test:
 
     async def run(self, dut): 
         await cocotb.start(self.agt.run())
-        for i in range(20):
+        for i in range(400000):
             await self.gen.send_trans(i % 200)
             
         cocotb.log.info("%s finished", self.name)

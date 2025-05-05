@@ -43,7 +43,7 @@ class Sequence(uvm_sequence):
     def body(self):
         # in1 = [random.randrange(0, 20) for i in range(20)]
         # in2 = [random.randrange(0, 20) for i in range(20)]
-        for i in range(20):
+        for i in range(400000):
             item = self.create_item()
             self.start_item(item, self.m_sequencer)
             payload = {
@@ -87,7 +87,7 @@ class Driver(uvm_driver):
         self.input2 = None
         self.op = None
         self.output = None
-        self.res = [0] * 20
+        # self.res = [0] * 20
         self.data = [None]
 
 
@@ -100,7 +100,7 @@ class Driver(uvm_driver):
             yield self.env.process(self.socket.get_next_item(trans))
 
             payload = trans.get_data_ptr()[0]
-            print("payload:", payload)
+            # print("payload:", payload)
 
             if 'exit' in payload.keys():
                 self.exit_e.succeed()
@@ -159,6 +159,7 @@ class Driver(uvm_driver):
                         top.setValue("op", self.op)
                         top.setValue("A", self.input1)
                         top.setValue("B", self.input2)
+                        # print("in1:", self.input1, ", in2:", self.input2)
                         num = num + 1
 
             top.eval()
@@ -235,6 +236,8 @@ class Top(Module):
         self.driver.socket.bind(self.sequencer.socket)
 
 
+import time
+
 def test_tinyalu():
     # 创建一个 env 实例
     env = simpy.Environment()
@@ -245,9 +248,13 @@ def test_tinyalu():
     seq = Sequence(env, 'seq')
     seq.start(top.sequencer)
 
+    t1 = time.time()
+
     # 运行仿真
     env.run()
 
+    t2 = time.time()
+    print("t2-t1", t2-t1)
 
 if __name__ == '__main__':
     test_tinyalu()
