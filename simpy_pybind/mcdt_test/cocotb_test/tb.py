@@ -6,7 +6,8 @@
 import cocotb
 from cocotb.triggers import Timer
 from cocotb.triggers import FallingEdge, RisingEdge
-from queue import Queue
+from cocotb.triggers import Event
+from cocotb.queue import Queue
 from cocotb.simulator import *
 
 
@@ -71,18 +72,26 @@ class chnl_trans:
 
 class generator:
     def __init__(self):
-        self.req_mb = Queue()
-    
-    def send_trans(self, ch_id):
+        self.req_mb = Queue(1)
+        self.item_done_e = Event()
+
+    async def send_trans(self, ch_id):
+        # intf = self.intf
         t = chnl_trans(ch_id, 0)
-        self.req_mb.put(t)
-        
+        await self.req_mb.put(t)
+        await self.item_done_e.wait()
+        # print("self.item_done_e.wait()")
+    
+    def set_interface(self, intf):
+        self.intf = intf
+
 
 class driver:
     def __init__(self, ch_id, name):
         self.ch_id = ch_id
         self.name = name
-        self.req_mb = Queue()
+        self.req_mb = Queue(1)
+        self.item_done_e = Event()
     
     async def run(self):
         intf = self.intf
@@ -91,7 +100,10 @@ class driver:
             await RisingEdge(intf.clk)
             if self.req_mb.empty() is False:
                 t = self.req_mb.get_nowait()
-                await cocotb.start(self.chnl_write(t))
+                # await cocotb.start(self.chnl_write(t))
+                await self.chnl_write(t)
+                self.item_done_e.set()
+                self.item_done_e.clear()
         
 
     async def chnl_write(self, t):
@@ -103,7 +115,7 @@ class driver:
 
             intf.ch_valid.value = 1
             intf.chnl_data.value = t.data[i]
-            cocotb.log.info("%s %s drivered channel data %8x", time_ns, self.name, t.data[i])
+            # cocotb.log.info("%s %s drivered channel data %8x", time_ns, self.name, t.data[i])
             await FallingEdge(intf.clk)
             while intf.ch_ready.value != 1:
                 await RisingEdge(intf.clk)
@@ -156,7 +168,7 @@ class chnl_monitor:
             
     def set_interface(self, intf):
         self.intf = intf
-            
+
 
 class mcdt_monitor:
     def __init__(self, name="mcdt_monitor"):
@@ -189,16 +201,16 @@ class chnl_agent:
     def __init__(self, ch_id, chnl_driver_name="chnl_driver0", chnl_monitor_name="chnl_monitor", name="chnl_agent"):
         self.name = name
         self.driver = driver(ch_id, chnl_driver_name)
-        self.monitor = chnl_monitor(ch_id, chnl_monitor_name)
+        # self.monitor = chnl_monitor(ch_id, chnl_monitor_name)
     
     async def run(self):
         await cocotb.start(self.driver.run())
-        await cocotb.start(self.monitor.run())
+        # await cocotb.start(self.monitor.run())
         
     def set_interface(self, vif):
         self.vif = vif
         self.driver.set_interface(vif)
-        self.monitor.set_interface(vif)
+        # self.monitor.set_interface(vif)
 
 
 class chnl_checker:
@@ -238,7 +250,8 @@ class chnl_checker:
 async def generate_clock(dut):
     """Generate clock pulses."""
     dut.clk_i.value = 0
-    for cycle in range(100):
+    # for cycle in range(100):
+    while True:
         dut.clk_i.value = 0
         await Timer(5, units="ns")
         dut.clk_i.value = 1
@@ -259,30 +272,35 @@ class chnl_root_test:
         self.agents = [chnl_agent(0, "chnl_driver0", "chnl_monitor0", "chnl_agent0"),
                         chnl_agent(1, "chnl_driver1", "chnl_monitor1", "chnl_agent1"),
                          chnl_agent(2, "chnl_driver2", "chnl_monitor2", "chnl_agent2")]
-        self.mcdt_mon = mcdt_monitor()
-        self.chker = chnl_checker()
+        # self.mcdt_mon = mcdt_monitor()
+        # self.chker = chnl_checker()
         self.generators = [generator(), generator(), generator()]
         for i in range(3):
-            self.agents[i].monitor.mon_mb = self.chker.in_mbs[i]
+            # self.agents[i].monitor.mon_mb = self.chker.in_mbs[i]
             self.agents[i].driver.req_mb = self.generators[i].req_mb
-        self.mcdt_mon.mon_mb = self.chker.out_mb       
+            self.agents[i].driver.item_done_e = self.generators[i].item_done_e
+        # self.mcdt_mon.mon_mb = self.chker.out_mb       
+        self.finish_e = Event()
 
     async def run(self, dut): 
         for agent in self.agents:
             await cocotb.start(agent.run())
-        await cocotb.start(self.mcdt_mon.run())
-        await cocotb.start(self.chker.run(dut))
+        # await cocotb.start(self.mcdt_mon.run())
+        # await cocotb.start(self.chker.run(dut))
         
-        for i in range(3):
-            self.generators[i].send_trans(i)
+        for i in range(20000):
+            await self.generators[i % 3].send_trans(i % 3)
             
         cocotb.log.info("%s instantiated and connected objects", self.name)
+        self.finish_e.set()
+        self.finish_e.clear()
+        
 
     def set_interface(self, ch0_vif, ch1_vif, ch2_vif, mcdt_vif):
         self.agents[0].set_interface(ch0_vif)
         self.agents[1].set_interface(ch1_vif)
         self.agents[2].set_interface(ch2_vif)
-        self.mcdt_mon.set_interface(mcdt_vif)
+        # self.mcdt_mon.set_interface(mcdt_vif)
     
 
 @cocotb.test()
@@ -305,5 +323,6 @@ async def tb(dut):
     time_ns = get_sim_time()
     cocotb.log.info("%s", time_ns)
     await RisingEdge(dut.rstn_i)
-    for cycle in range(80):
-        await RisingEdge(dut.clk_i)
+    # for cycle in range(80):
+    #     await RisingEdge(dut.clk_i)
+    await test.finish_e.wait()

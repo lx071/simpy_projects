@@ -45,7 +45,7 @@ class Sequence(uvm_sequence):
     def body(self):
         # in1 = [random.randrange(0, 20) for i in range(20)]
         # in2 = [random.randrange(0, 20) for i in range(20)]
-        for i in range(20):
+        for i in range(200000):
             item = self.create_item()
             self.start_item(item, self.m_sequencer)
             trans = chnl_trans(i % 3, 0)
@@ -112,8 +112,7 @@ class Driver(uvm_driver):
             yield self.item_done_e
             self.socket.item_done()
 
-
-    def posedge_clk(self):
+    def read_output(self):
         top = self.simContext
         top.eval()
         # read outputs
@@ -123,6 +122,11 @@ class Driver(uvm_driver):
         if val == 1:
             print("data: %8x, val: %0d, id: %0d" %(data, val, id))
 
+
+    def posedge_clk(self):
+        top = self.simContext
+        top.eval()
+        # self.read_output()
         top.sleep_cycles(5)
         top.setValue("clk_i", 0)
         top.eval()
@@ -277,6 +281,8 @@ class Top(Module):
         self.driver.socket.bind(self.sequencer.socket)
 
 
+import time
+
 def test_mcdt():
     # 创建一个 env 实例
     env = simpy.Environment()
@@ -285,10 +291,15 @@ def test_mcdt():
     top = Top(env, 'top')
 
     seq = Sequence(env, 'seq')
+    
     seq.start(top.sequencer)
+    t1 = time.time()
 
     # 运行仿真
     env.run()
+
+    t2 = time.time()
+    print("t2-t1", t2-t1)
 
 
 def basic_test():
