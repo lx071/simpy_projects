@@ -73,13 +73,13 @@ class chnl_trans:
 class generator:
     def __init__(self):
         self.req_mb = Queue(1)
-        self.item_done_e = Event()
+        # self.item_done_e = Event()
 
     async def send_trans(self, ch_id):
         # intf = self.intf
         t = chnl_trans(ch_id, 0)
         await self.req_mb.put(t)
-        await self.item_done_e.wait()
+        # await self.item_done_e.wait()
         # print("self.item_done_e.wait()")
     
     def set_interface(self, intf):
@@ -91,7 +91,7 @@ class driver:
         self.ch_id = ch_id
         self.name = name
         self.req_mb = Queue(1)
-        self.item_done_e = Event()
+        # self.item_done_e = Event()
     
     async def run(self):
         intf = self.intf
@@ -102,8 +102,8 @@ class driver:
                 t = self.req_mb.get_nowait()
                 # await cocotb.start(self.chnl_write(t))
                 await self.chnl_write(t)
-                self.item_done_e.set()
-                self.item_done_e.clear()
+                # self.item_done_e.set()
+                # self.item_done_e.clear()
         
 
     async def chnl_write(self, t):
@@ -112,18 +112,13 @@ class driver:
         for i in range(num):
             await RisingEdge(intf.clk)
             time_ns = get_sim_time()
-
             intf.ch_valid.value = 1
             intf.chnl_data.value = t.data[i]
             # cocotb.log.info("%s %s drivered channel data %8x", time_ns, self.name, t.data[i])
-            await FallingEdge(intf.clk)
-            while intf.ch_ready.value != 1:
-                await RisingEdge(intf.clk)
-            
-            for i in range(t.data_nidles):
-                await self.chnl_idle(t)
-        for i in range(t.pkt_nidles):
-            await self.chnl_idle(t)
+
+            await RisingEdge(intf.clk)
+            intf.ch_valid.value = 0
+            intf.chnl_data.value = 0
 
     async def chnl_idle(self, t):
         intf = self.intf
@@ -278,7 +273,7 @@ class chnl_root_test:
         for i in range(3):
             # self.agents[i].monitor.mon_mb = self.chker.in_mbs[i]
             self.agents[i].driver.req_mb = self.generators[i].req_mb
-            self.agents[i].driver.item_done_e = self.generators[i].item_done_e
+            # self.agents[i].driver.item_done_e = self.generators[i].item_done_e
         # self.mcdt_mon.mon_mb = self.chker.out_mb       
         self.finish_e = Event()
 
@@ -288,7 +283,7 @@ class chnl_root_test:
         # await cocotb.start(self.mcdt_mon.run())
         # await cocotb.start(self.chker.run(dut))
         
-        for i in range(20000):
+        for i in range(200000):
             await self.generators[i % 3].send_trans(i % 3)
             
         cocotb.log.info("%s instantiated and connected objects", self.name)

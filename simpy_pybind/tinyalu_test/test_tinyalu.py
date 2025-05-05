@@ -163,10 +163,10 @@ class Driver(uvm_driver):
 
             top.eval()
             
-            config_db["cycle_event"].set()
-            yield self.env.timeout(0)
-            config_db["cycle_event"].clear()
-            yield self.env.timeout(0)
+            # config_db["cycle_event"].set()
+            # yield self.env.timeout(0)
+            # config_db["cycle_event"].clear()
+            # yield self.env.timeout(0)
 
             top.sleep_cycles(1)
 
