@@ -4,34 +4,14 @@
 #include <systemc.h>
 #include <tlm.h>
 
-// 接口定义
-// class Interface : public sc_core::sc_interface {
-// public:
-//     virtual void get_next_item(tlm::tlm_generic_payload& trans, 
-//                              sc_core::sc_time& delay) = 0;
-//     virtual void item_done(tlm::tlm_generic_payload& trans,
-//                          sc_core::sc_time& delay) = 0;
-//     virtual ~Interface() {}
-// };
 
 // 前向声明
-class Sequencer;
-
-// 适配器类声明
-// class uvm_seq_item_if : public sc_core::sc_interface {
-//     Sequencer& imp;
-// public:
-//     uvm_seq_item_if(Sequencer& seq);
-//     void get_next_item(tlm::tlm_generic_payload& trans,
-//                      sc_core::sc_time& delay) override;
-//     void item_done(tlm::tlm_generic_payload& trans,
-//                  sc_core::sc_time& delay) override;
-// };
+class uvm_sequencer;
 
 class uvm_seq_item_if : public sc_core::sc_interface {
-    Sequencer& imp;
+    uvm_sequencer& imp;
 public:
-    uvm_seq_item_if(Sequencer& comp);
+    uvm_seq_item_if(uvm_sequencer& comp);
     void get_next_item(tlm::tlm_generic_payload& trans,
                      sc_core::sc_time& delay);
     void item_done(tlm::tlm_generic_payload& trans,
@@ -39,26 +19,32 @@ public:
 };
 
 // Sequencer类声明
-SC_MODULE(Sequencer) {
+class uvm_sequencer : public sc_module {
 public:
     sc_core::sc_export<uvm_seq_item_if> seq_item_export;
     uvm_seq_item_if intf;
 
-    SC_CTOR(Sequencer);
-    
+    SC_CTOR(uvm_sequencer);
+    // uvm_driver(sc_module_name name) : sc_module(name) {
+    //     SC_THREAD(run_phase);
+    // }
+     
     void get_next_item(tlm::tlm_generic_payload& trans,
                      sc_core::sc_time& delay);
     void item_done(tlm::tlm_generic_payload& trans,
                  sc_core::sc_time& delay);
 };
 
-SC_MODULE(Driver) {
+class uvm_driver : public sc_module {
 public:
     // 端口声明
     sc_core::sc_port<uvm_seq_item_if> seq_item_port;
     
     // 构造函数
-    SC_CTOR(Driver);
+    SC_CTOR(uvm_driver);
+    // uvm_driver(sc_module_name name) : sc_module(name) {
+    //     SC_THREAD(run_phase);
+    // }
     
 private:
     // 测试线程

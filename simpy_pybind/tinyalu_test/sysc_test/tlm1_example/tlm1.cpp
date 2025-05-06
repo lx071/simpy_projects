@@ -4,14 +4,14 @@
 #include "utils.h"
 
 // Sequencer构造函数实现
-Sequencer::Sequencer(sc_core::sc_module_name name) 
+uvm_sequencer::uvm_sequencer(sc_core::sc_module_name name) 
     : sc_module(name), intf(*this) 
 {
     seq_item_export.bind(intf);
 }
 
 // Sequencer方法实现
-void Sequencer::get_next_item(tlm::tlm_generic_payload& trans, 
+void uvm_sequencer::get_next_item(tlm::tlm_generic_payload& trans, 
                             sc_core::sc_time& delay) 
 {
     std::cout << "Getting next item at " 
@@ -19,7 +19,7 @@ void Sequencer::get_next_item(tlm::tlm_generic_payload& trans,
               << std::endl;
 }
 
-void Sequencer::item_done(tlm::tlm_generic_payload& trans,
+void uvm_sequencer::item_done(tlm::tlm_generic_payload& trans,
                         sc_core::sc_time& delay) 
 {
     std::cout << "Item done at " 
@@ -29,7 +29,7 @@ void Sequencer::item_done(tlm::tlm_generic_payload& trans,
 
 
 // 适配器方法实现
-uvm_seq_item_if::uvm_seq_item_if(Sequencer& comp) 
+uvm_seq_item_if::uvm_seq_item_if(uvm_sequencer& comp) 
     : imp(comp) {}
 
 void uvm_seq_item_if::get_next_item(tlm::tlm_generic_payload& trans,
@@ -45,14 +45,14 @@ void uvm_seq_item_if::item_done(tlm::tlm_generic_payload& trans,
 }
 
 
-Driver::Driver(sc_core::sc_module_name name) 
+uvm_driver::uvm_driver(sc_core::sc_module_name name) 
     : sc_module(name) 
 {
     // 注册测试线程
     SC_THREAD(run_test);
 }
 
-void Driver::run_test() {
+void uvm_driver::run_test() {
     // 创建测试事务
     tlm::tlm_generic_payload trans;
     sc_core::sc_time delay(10, SC_NS);
@@ -75,8 +75,8 @@ void Driver::run_test() {
 
 int sc_main(int argc, char* argv[]) {
     // 创建模块实例
-    Sequencer sequencer("Sequencer");
-    Driver driver("Driver");
+    uvm_sequencer sequencer("Sequencer");
+    uvm_driver driver("Driver");
     
     // 连接端口
     driver.seq_item_port(sequencer.seq_item_export);
