@@ -21,10 +21,10 @@ public:
 };
 
 
-class uvm_sequence_item : public sc_module {
+class uvm_sequence_item {
 public:
     uvm_sequence_item(sc_core::sc_module_name name) 
-        : sc_module(name), m_sequence_id(-1), m_use_sequence_info(0), 
+        : m_sequence_id(-1), m_use_sequence_info(0), 
           m_depth(-1), m_sequencer(nullptr), m_parent_sequence(nullptr) {}
 
     virtual ~uvm_sequence_item() {}
@@ -126,12 +126,16 @@ public:
     
     void send_request(uvm_sequence* sequence_ptr, uvm_tlm_generic_payload* t, int rerandomize = 0) {
         // t->set_sequencer(this);
+        std::cout << "uvm_sequencer::send_request" << std::endl;
         m_req_fifo.push(t);
         // m_req_fifo_data_written.notify();
     }
     
     void wait_for_item_done(uvm_sequence* sequence_ptr, int transaction_id) {
+        std::cout << "uvm_sequencer::wait_for_item_done" << std::endl;
         wait(item_done_event);
+        std::cout << "uvm_sequencer::wait_for_item_done_end" << std::endl;
+        
     }
 
     std::queue<uvm_tlm_generic_payload*> m_req_fifo;
@@ -139,16 +143,17 @@ public:
 };
 
 
-class uvm_sequence : public uvm_sequence_item {
+class uvm_sequence : public uvm_sequence_item, sc_module {
 public:
     uvm_sequence(sc_core::sc_module_name name)
         : uvm_sequence_item(name) {}
 
     virtual void start(uvm_sequencer* sequencer, uvm_sequence* parent_sequence = nullptr) {
+        SC_HAS_PROCESS(uvm_sequence);
         m_sequencer = sequencer;
         set_item_context(parent_sequence, sequencer);
-        // SC_THREAD(body);
-        body();
+        SC_THREAD(body);
+        // body();
     }
 
     virtual void body() = 0;

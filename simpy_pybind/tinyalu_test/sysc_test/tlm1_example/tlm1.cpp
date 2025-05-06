@@ -12,6 +12,9 @@ public:
 
     void body() override {
         std::cout << "sequence::body()" << std::endl;
+        uvm_tlm_generic_payload *item = create_item();
+        start_item(item, m_sequencer);
+        finish_item(item);
     }
 };
 
@@ -51,11 +54,11 @@ int sc_main(int argc, char* argv[]) {
     uvm_sequencer sqr("Sequencer");
     driver drv("Driver");
     sequence seq("Sequence");
-    seq.start(&sqr);
 
     // 连接端口
     drv.seq_item_port(sqr.seq_item_export);
-    
+    seq.start(&sqr);
+
     // 启动仿真
     sc_core::sc_start(200, SC_NS);
     
