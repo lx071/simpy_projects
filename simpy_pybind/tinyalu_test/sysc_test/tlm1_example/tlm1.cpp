@@ -15,6 +15,30 @@ public:
         uvm_tlm_generic_payload *item = create_item();
         start_item(item, m_sequencer);
         finish_item(item);
+        for(int i = 0; i < 100; i ++) {
+
+        }
+        item = create_item();
+        start_item(item, m_sequencer);
+        int item_num = 50;
+        int num = 10;
+        unsigned char arr[item_num*3];
+
+        for (int i = 0; i < item_num; i = i + 1) {
+            arr[i*3] = i%100;
+            arr[i*3+1] = i%100;
+            arr[i*3+2] = 1;
+        }
+        // unsigned char arr[] = {0x1, 0x2, 0x3, 0x4, 0x5};
+        unsigned char *payload_data = arr;
+
+        // set data
+        item->set_command(tlm::TLM_WRITE_COMMAND);
+        item->set_address(0x0);
+        item->set_data_ptr(reinterpret_cast<unsigned char*>(payload_data));
+        item->set_data_length(item_num * 3);
+
+        finish_item(item);
     }
 };
 

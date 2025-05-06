@@ -88,10 +88,10 @@ protected:
     uvm_sequence* m_parent_sequence;
 };
 
-class uvm_tlm_generic_payload : public uvm_sequence_item, tlm::tlm_generic_payload {
+class uvm_tlm_generic_payload : public uvm_sequence_item, public tlm::tlm_generic_payload {
 public:
     uvm_tlm_generic_payload(sc_core::sc_module_name name)
-        : uvm_sequence_item(name) {}
+        : uvm_sequence_item(name), tlm::tlm_generic_payload() {}
 };
 
 // Sequencer类声明
@@ -122,12 +122,20 @@ public:
         std::cout << "Item done at " 
                 << sc_core::sc_time_stamp() 
                 << std::endl;
+        item_done_event.notify();
     }
     
     void send_request(uvm_sequence* sequence_ptr, uvm_tlm_generic_payload* t, int rerandomize = 0) {
         // t->set_sequencer(this);
         std::cout << "uvm_sequencer::send_request" << std::endl;
         m_req_fifo.push(t);
+
+        unsigned char* data = t->get_data_ptr();
+        unsigned int len = t->get_data_length();
+        std::cout << "len:" << len << std::endl;
+        for(int i = 0; i < len / 3; i ++) {
+            std::cout << int(data[i * 3]) << " " << int(data[i * 3 + 1]) << " " << int(data[i * 3 + 2]) << std::endl;
+        }
         // m_req_fifo_data_written.notify();
     }
     
@@ -135,7 +143,6 @@ public:
         std::cout << "uvm_sequencer::wait_for_item_done" << std::endl;
         wait(item_done_event);
         std::cout << "uvm_sequencer::wait_for_item_done_end" << std::endl;
-        
     }
 
     std::queue<uvm_tlm_generic_payload*> m_req_fifo;
