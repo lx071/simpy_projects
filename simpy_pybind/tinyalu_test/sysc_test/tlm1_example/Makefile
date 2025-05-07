@@ -1,4 +1,4 @@
-src = tlm1.cpp
+src = tlm1_v0.cpp
 INCLUDE_FLAGS = -I /usr/local/systemc-2.3.4/include
 LDFLAGS = -L /usr/local/systemc-2.3.4/lib-linux64 -l systemc
 
@@ -12,4 +12,4 @@ run: main
 	./main
 
 clean:
-	rm -rf main *.vcd
+	rm -rf main *.vcd obj_dir
