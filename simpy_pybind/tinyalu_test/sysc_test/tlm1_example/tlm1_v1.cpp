@@ -53,9 +53,9 @@ public:
     }
 
     void init_value() {
-        A.write(1);
-        B.write(1);
-        op.write(1);
+        A.write(0);
+        B.write(0);
+        op.write(0);
     }
 
     ~DUT() {
@@ -68,12 +68,10 @@ public:
 class sequence: public uvm_sequence {
 public:
     sequence(sc_core::sc_module_name name)
-    : uvm_sequence(name) {
-        std::cout << "sequence::new()" << std::endl;
-    }
+    : uvm_sequence(name) { }
 
     void body() override {
-        std::cout << "sequence::body()" << std::endl;
+
         uvm_tlm_generic_payload *item = create_item();
         
         int num = 3;
@@ -106,46 +104,57 @@ public:
 class driver: public uvm_driver {
 public:
     uvm_tlm_generic_payload *trans;
-    DUT *top;
-
-    driver(sc_core::sc_module_name name, DUT *top) 
-    : uvm_driver(name), top(top) {
+    DUT *dut;
+    Vtinyalu *top;
+    driver(sc_core::sc_module_name name, DUT *dut) 
+    : uvm_driver(name), dut(dut) {
         trans = new uvm_tlm_generic_payload("trans");
+        top = dut->top;
     }
 
-    void run_phase() override {
-        // 创建测试事务
+    void drive_transfer(int a, int b, int op) {
+        // Apply inputs
+        if (sc_time_stamp() > sc_time(1, SC_NS) && sc_time_stamp() < sc_time(10, SC_NS)) {
+            dut->reset_n.write(0);  // Assert reset
+        } else {
+            dut->reset_n.write(1);  // Deassert reset
+        }
         
+        dut->A.write(a);
+        dut->B.write(b);
+        dut->op.write(op);
+        dut->start.write(1);
+
+        // Simulate 20ns
+        wait(20, SC_NS);
+
+        std::cout << dut->A.read() << " + " << dut->B.read() << " = " << dut->result.read() << std::endl;
+    }
+
+    void run_phase() override { 
+        int num = 0;
         sc_core::sc_time delay(10, SC_NS);
         
         // 测试场景
-        for (int i = 0; i < 3; ++i) {
+        while(true) {
             // 获取下一个事务
             seq_item_port->get_next_item(trans, delay);
 
             unsigned char* data = trans->get_data_ptr();
             unsigned int len = trans->get_data_length();
-            std::cout << "len:" << len << std::endl;
+            // std::cout << "len:" << len << std::endl;
             for(int i = 0; i < len / 3; i ++) {
-                std::cout << int(data[i * 3]) << " " << int(data[i * 3 + 1]) << " " << int(data[i * 3 + 2]) << std::endl;
+                drive_transfer(int(data[i * 3]), int(data[i * 3 + 1]), int(data[i * 3 + 2]));
             }
-            // 模拟处理延迟
-            wait(25, SC_NS);
-            top->A.write(1);
-            top->B.write(1);
-            top->op.write(1);
-            
-            // Simulate 5ns
-            wait(10, SC_NS);
-
-            if (sc_time_stamp() > sc_time(10, SC_NS)) std::cout << top->A << " + " << top->B << " = " << top->result << std::endl;
-            
-            // 标记事务完成
             seq_item_port->item_done(trans, delay);
-            
-            // 间隔
-            wait(50, SC_NS);
+        
+            num ++;
+            if(num >= 3) {
+                num = 0;
+                break;
+            }
         }
+        sc_stop();
     }
 };
 
@@ -157,7 +166,7 @@ int sc_main(int argc, char* argv[]) {
     Verilated::commandArgs(argc, argv);
 
     // 创建模块实例
-    DUT dut("top");
+    DUT dut("dut");
     uvm_sequencer sqr("Sequencer");
     driver drv("Driver", &dut);
     sequence seq("Sequence");
@@ -196,7 +205,7 @@ int sc_main(int argc, char* argv[]) {
     // }
 
     // 启动仿真
-    sc_core::sc_start(200, SC_NS);
+    sc_core::sc_start();
     
     return 0;
 }

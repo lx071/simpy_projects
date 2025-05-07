@@ -132,9 +132,7 @@ public:
     }
     
     void wait_for_item_done(uvm_sequence* sequence_ptr, int transaction_id) {
-        std::cout << "uvm_sequencer::wait_for_item_done" << std::endl;
         wait(item_done_event);
-        std::cout << "uvm_sequencer::wait_for_item_done_end" << std::endl;
     }
 
     sc_fifo<uvm_tlm_generic_payload*> m_req_fifo;
