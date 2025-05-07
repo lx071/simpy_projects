@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../")
+sys.path.append("../../")
 
 import simpy
 from utils import *
@@ -43,7 +43,7 @@ class Sequence(uvm_sequence):
     def body(self):
         # in1 = [random.randrange(0, 20) for i in range(20)]
         # in2 = [random.randrange(0, 20) for i in range(20)]
-        for i in range(400000):
+        for i in range(4000000):
             item = self.create_item()
             self.start_item(item, self.m_sequencer)
             payload = {
@@ -221,7 +221,7 @@ class Top(Module):
 
         self.dut = DUT(self.env, 'dut')
 
-        dut_path = "./hdl/"
+        dut_path = "./../hdl/"
         top_module_file_name = "tinyalu.sv"
         sim_folder = "simulation"
         self.simContext = self.dut.getSimContext(dut_path, top_module_file_name, sim_folder)

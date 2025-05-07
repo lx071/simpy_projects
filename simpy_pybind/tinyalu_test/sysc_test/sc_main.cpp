@@ -1,13 +1,7 @@
-// -*- SystemC -*-
-// DESCRIPTION: Verilator Example: Top level main for invoking SystemC model
-//
-// This file ONLY is placed under the Creative Commons Public Domain, for
-// any use, without warranty, 2017 by Wilson Snyder.
-// SPDX-License-Identifier: CC0-1.0
-//======================================================================
-
-// SystemC global header
 #include <systemc.h>
+#include <tlm.h>
+
+#include "utils.h"
 
 // Include common routines
 #include <verilated.h>
@@ -15,164 +9,179 @@
 // Include model header, generated from Verilating "top.v"
 #include "Vtinyalu.h"
 
-#include <tlm.h>
+#include <chrono>
 
-#if VM_TRACE
-#include <verilated_vcd_sc.h>
-#endif
+using namespace sc_core;
 
-#include <iostream>
-#include <queue>
-
-std::mutex mtx;        // 全局互斥锁
-std::condition_variable cr;   // 全局条件变量
-
-struct Item {
-    int in1;
-    int in2;
-    int op;
-};
-
-sc_event item_done_e; // declare an event
-
-class Interface : public sc_core::sc_interface{
-public:
-    virtual void get_next_item(tlm::tlm_generic_payload* trans);
-    virtual void item_done(tlm::tlm_generic_payload* trans);
-    virtual ~Interface() {}
-};
-
-SC_MODULE(Sequencer) {
+class DUT: public sc_module {
 public:
 
-    class seq_item_imp : public Interface {
-    public:
-        seq_item_imp(Sequencer* parent) : parent(parent) {}
+    // Define clocks
+    sc_clock clk;  // 创建周期为 10 的时钟信号对象，名称为 "clk"
 
-        void get_next_item(tlm::tlm_generic_payload* trans) override {
-            parent->get_next_item(trans);
+    // Define interconnect
+    sc_signal<bool> reset_n;
+    sc_signal<uint32_t> A;
+    sc_signal<uint32_t> B;
+    sc_signal<uint32_t> op;
+    sc_signal<bool> start;
+    sc_signal<bool> done;
+    sc_signal<uint32_t> result;
+
+    // Construct the Verilated model, from inside Vtop.h
+    // Using unique_ptr is similar to "Vtop* top = new Vtop" then deleting at end
+    Vtinyalu* top;
+
+    DUT(sc_core::sc_module_name name)
+        : sc_module(name), clk("clk", 10, SC_NS) {
+
+        top = new Vtinyalu("tinyalu");
+        
+        // Attach Vtinyalu's signals to this upper model
+        top->clk(clk);
+        top->reset_n(reset_n);
+        top->A(A);
+        top->B(B);
+        top->op(op);
+        top->start(start);
+        top->done(done);
+        top->result(result);
+
+        init_value();
+
+        // You must do one evaluation before enabling waves, in order to allow
+        // SystemC to interconnect everything for testing.
+        // sc_start(SC_ZERO_TIME);
+    }
+
+    void init_value() {
+        A.write(0);
+        B.write(0);
+        op.write(0);
+        start.write(0);
+    }
+
+    ~DUT() {
+        // Final model cleanup
+        top->final();
+        delete top;	
+	}
+};
+
+class sequence: public uvm_sequence {
+public:
+    sequence(sc_core::sc_module_name name)
+    : uvm_sequence(name) { }
+
+    void body() override {
+
+        uvm_tlm_generic_payload *item;
+        
+        int num = 4000000;
+        int item_num = 1;
+        for(int i = 0; i < num; i ++) {
+            item = create_item();
+            start_item(item, m_sequencer);
+            
+            unsigned char arr[item_num*3];
+
+            for (int j = 0; j < item_num; j = j + 1) {
+                arr[j * 3] = i % 100;
+                arr[j * 3 + 1] = i % 100;
+                arr[j * 3 + 2] = 1;
+            }
+            // unsigned char arr[] = {0x1, 0x2, 0x3, 0x4, 0x5};
+            unsigned char *payload_data = arr;
+
+            // set data
+            item->set_command(tlm::TLM_WRITE_COMMAND);
+            item->set_address(0x0);
+            item->set_data_ptr(reinterpret_cast<unsigned char*>(payload_data));
+            item->set_data_length(item_num * 3);
+
+            finish_item(item);
         }
+        sc_stop();
+    }
+};
 
-        void item_done(tlm::tlm_generic_payload* item = nullptr) override {
-            parent->item_done(item);
+class driver: public uvm_driver {
+public:
+    uvm_tlm_generic_payload *trans;
+    DUT *dut;
+    Vtinyalu *top;
+    driver(sc_core::sc_module_name name, DUT *dut) 
+    : uvm_driver(name), dut(dut) {
+        trans = new uvm_tlm_generic_payload("trans");
+        top = dut->top;
+    }
+
+    void drive_transfer(int a, int b, int op) {
+        // Apply inputs
+        if (sc_time_stamp() > sc_time(1, SC_NS) && sc_time_stamp() < sc_time(10, SC_NS)) {
+            dut->reset_n.write(0);  // Assert reset
+        } else {
+            dut->reset_n.write(1);  // Deassert reset
         }
-
-    private:
-        uvm_sequencer* parent;
-    };
-
-    sc_export<Interface> seq_item_export;
-    SC_CTOR(Sequencer) {
-        // socket.register_b_transport(this, &Sequencer::get_next_item);   //register methods with each socket
-    }
-
-    std::queue<Item> req_mb;
-
-
-    void get_next_item(tlm::tlm_generic_payload& trans, sc_time& delay) {    
-		
-        Item req = req_mb.front();
-        req_mb.pop();
-        cout << "in1:" << req.in1 << "\nin2:" << req.in2 << "\nop:" << req.op << endl;
-
-        trans.set_data_ptr( reinterpret_cast<unsigned char*>(&req) );
-        wait(SC_ZERO_TIME);
-        trans.set_response_status(tlm::TLM_OK_RESPONSE);
-    }
-
-    void send_request(Item item) {
-        req_mb.push(item);
-    }
-
-    void wait_for_item_done() {
-        // wait(item_done_e);
-    }
-};
-
-    // class Interface_imp : public Interface {
-    //     Sequencer& parent;
-    // public 
-    // };
-    
-
-SC_MODULE(Driver) {
-public:
-    sc_port<Interface> seq_item_port;
-
-    SC_CTOR(Driver) {
-        SC_THREAD(run);
-    }
-
-private:
-
-    void run() {
-        tlm::tlm_generic_payload trans;
-        sc_time delay = sc_time(10, SC_NS);
-
-        seq_item_port.get_next_item(trans, delay);
         
-        Item item = *reinterpret_cast<Item*>(trans.get_data_ptr());
+        dut->A.write(a);
+        dut->B.write(b);
+        dut->op.write(op);
+        dut->start.write(1);
+
+        // Simulate 20ns
+        wait(20, SC_NS);
+
+        // std::cout << dut->A.read() << " + " << dut->B.read() << " = " << dut->result.read() << std::endl;
+    }
+
+    void run_phase() override { 
+
+        sc_core::sc_time delay(10, SC_NS);
         
-        cout << "in1:" << item.in1 << "\nin2:" << item.in2 << "\nop:" << item.op << endl;
+        // 测试场景
+        while(true) {
+            // 获取下一个事务
+            seq_item_port->get_next_item(trans, delay);
+
+            unsigned char* data = trans->get_data_ptr();
+            unsigned int len = trans->get_data_length();
+            // std::cout << "len:" << len << std::endl;
+            for(int i = 0; i < len / 3; i ++) {
+                drive_transfer(int(data[i * 3]), int(data[i * 3 + 1]), int(data[i * 3 + 2]));
+            }
+            seq_item_port->item_done(trans, delay);
+        }
     }
 };
 
-SC_MODULE(Sequence) {
-public:
-
-    SC_CTOR(Sequence) {
-        m_sequencer = nullptr;
-    }
-
-    Sequencer *m_sequencer;
-
-    void set_item_context() {
-
-
-    }
-
-    void start(Sequencer *sequencer) {        
-        m_sequencer = sequencer;
-        body();
-    }
-
-    void body() {
-        cout << "body" << endl;
-        Item item;
-        item.in1 = 2;
-        item.in2 = 3;
-        item.op = 4;
-        m_sequencer->send_request(item);
-        // m_sequencer->wait_for_item_done();
-    }
-
-    // def start(self, sequencer, parent_sequence = None):
-    //     self.m_sequencer = sequencer
-    //     self.set_item_context(parent_sequence, sequencer)
-    //     self.env.process(self.body())
-        
-};
-
-SC_MODULE(Test) {
-public:
-    
-    Sequencer *sequencer;
-    Driver *driver;
-    Sequence *sequence;
-    
-    SC_CTOR(Test) {
-        sequencer = new Sequencer("sequencer");
-        driver = new Driver("driver");
-        sequence = new Sequence("sequence");
-        driver->seq_item_port.bind(sequencer->seq_item_export);
-
-        sequence->start(sequencer);
-    }
-};
 
 int sc_main(int argc, char* argv[]) {
-    Test test("test");
-    cout << "xxx" << endl;
-    sc_start();
+    // Pass arguments so Verilated code can see them, e.g. $value$plusargs
+    // This needs to be called before you create any model
+    Verilated::commandArgs(argc, argv);
+
+    // 创建模块实例
+    DUT dut("dut");
+    uvm_sequencer sqr("Sequencer");
+    driver drv("Driver", &dut);
+    sequence seq("Sequence");
+
+    // 连接端口
+    drv.seq_item_port(sqr.seq_item_export);
+    seq.start(&sqr);
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    // 启动仿真
+    sc_core::sc_start();
+
+    auto end = std::chrono::high_resolution_clock::now();
+    
+    // 计算持续时间（秒，带小数）
+    std::chrono::duration<double> duration = end - start;
+    
+    std::cout << "实际执行时间: " << duration.count() << " 秒" << std::endl;
+    
     return 0;
 }

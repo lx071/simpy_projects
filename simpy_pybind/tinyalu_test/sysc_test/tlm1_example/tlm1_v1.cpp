@@ -56,6 +56,7 @@ public:
         A.write(0);
         B.write(0);
         op.write(0);
+        start.write(0);
     }
 
     ~DUT() {
@@ -72,9 +73,9 @@ public:
 
     void body() override {
 
-        uvm_tlm_generic_payload *item = create_item();
+        uvm_tlm_generic_payload *item;
         
-        int num = 3;
+        int num = 10;
         int item_num = 5;
         for(int i = 0; i < num; i ++) {
             item = create_item();
@@ -98,6 +99,7 @@ public:
 
             finish_item(item);
         }
+        sc_stop();
     }
 };
 
@@ -132,7 +134,7 @@ public:
     }
 
     void run_phase() override { 
-        int num = 0;
+
         sc_core::sc_time delay(10, SC_NS);
         
         // 测试场景
@@ -147,17 +149,9 @@ public:
                 drive_transfer(int(data[i * 3]), int(data[i * 3 + 1]), int(data[i * 3 + 2]));
             }
             seq_item_port->item_done(trans, delay);
-        
-            num ++;
-            if(num >= 3) {
-                num = 0;
-                break;
-            }
         }
-        sc_stop();
     }
 };
-
 
 
 int sc_main(int argc, char* argv[]) {
@@ -174,35 +168,6 @@ int sc_main(int argc, char* argv[]) {
     // 连接端口
     drv.seq_item_port(sqr.seq_item_export);
     seq.start(&sqr);
-
-    // int num = 0;
-
-    // Simulate until $finish
-    // while (!Verilated::gotFinish()) {
-
-    //     // Apply inputs
-    //     if (sc_time_stamp() > sc_time(1, SC_NS) && sc_time_stamp() < sc_time(10, SC_NS)) {
-    //         reset_n = 0;  // Assert reset
-    //     } else {
-    //         reset_n = 1;  // Deassert reset
-    //     }
-        
-    //     num ++;
-    //     A = num % 100;
-    //     B = num % 100;
-    //     op = 1;
-
-    //     // Simulate 5ns
-    //     sc_start(10, SC_NS);
-
-    //     if (sc_time_stamp() > sc_time(10, SC_NS)) cout << A << " + " << B << " = " << result << endl;
-
-    //     if(num > 100) 
-    //     {
-    //         num = 0;
-    //         break;
-    //     }
-    // }
 
     // 启动仿真
     sc_core::sc_start();
