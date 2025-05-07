@@ -14,10 +14,10 @@ class uvm_seq_item_if : public sc_core::sc_interface {
     uvm_sequencer& imp;
 public:
     uvm_seq_item_if(uvm_sequencer& comp);
-    void get_next_item(uvm_tlm_generic_payload& trans,
-                     sc_core::sc_time& delay);
-    void item_done(uvm_tlm_generic_payload& trans,
-                 sc_core::sc_time& delay);
+    void get_next_item(uvm_tlm_generic_payload*& trans,
+                     sc_core::sc_time delay);
+    void item_done(uvm_tlm_generic_payload* trans,
+                 sc_core::sc_time delay);
 };
 
 
@@ -108,16 +108,16 @@ public:
     }
 
     // Sequencer方法实现
-    void get_next_item(uvm_tlm_generic_payload& trans, 
-                                sc_core::sc_time& delay) 
+    void get_next_item(uvm_tlm_generic_payload*& trans, sc_core::sc_time delay) 
     {
         std::cout << "Getting next item at " 
                 << sc_core::sc_time_stamp() 
                 << std::endl;
+        trans = m_req_fifo.read();
     }
 
-    void item_done(uvm_tlm_generic_payload& trans,
-                            sc_core::sc_time& delay) 
+    void item_done(uvm_tlm_generic_payload* trans,
+                            sc_core::sc_time delay) 
     {
         std::cout << "Item done at " 
                 << sc_core::sc_time_stamp() 
@@ -128,15 +128,7 @@ public:
     void send_request(uvm_sequence* sequence_ptr, uvm_tlm_generic_payload* t, int rerandomize = 0) {
         // t->set_sequencer(this);
         std::cout << "uvm_sequencer::send_request" << std::endl;
-        m_req_fifo.push(t);
-
-        unsigned char* data = t->get_data_ptr();
-        unsigned int len = t->get_data_length();
-        std::cout << "len:" << len << std::endl;
-        for(int i = 0; i < len / 3; i ++) {
-            std::cout << int(data[i * 3]) << " " << int(data[i * 3 + 1]) << " " << int(data[i * 3 + 2]) << std::endl;
-        }
-        // m_req_fifo_data_written.notify();
+        m_req_fifo.write(t);
     }
     
     void wait_for_item_done(uvm_sequence* sequence_ptr, int transaction_id) {
@@ -145,7 +137,7 @@ public:
         std::cout << "uvm_sequencer::wait_for_item_done_end" << std::endl;
     }
 
-    std::queue<uvm_tlm_generic_payload*> m_req_fifo;
+    sc_fifo<uvm_tlm_generic_payload*> m_req_fifo;
     sc_event item_done_event;
 };
 
@@ -227,14 +219,14 @@ public:
 uvm_seq_item_if::uvm_seq_item_if(uvm_sequencer& comp) 
     : imp(comp) {}
 
-void uvm_seq_item_if::get_next_item(uvm_tlm_generic_payload& trans,
-                                           sc_core::sc_time& delay) 
+void uvm_seq_item_if::get_next_item(uvm_tlm_generic_payload*& trans,
+                                           sc_core::sc_time delay) 
 {
     imp.get_next_item(trans, delay);
 }
 
-void uvm_seq_item_if::item_done(uvm_tlm_generic_payload& trans,
-                                       sc_core::sc_time& delay) 
+void uvm_seq_item_if::item_done(uvm_tlm_generic_payload* trans,
+                                       sc_core::sc_time delay) 
 {
     imp.item_done(trans, delay);
 }
