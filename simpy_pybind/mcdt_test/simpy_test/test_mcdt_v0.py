@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../")
+sys.path.append("../../")
 
 from utils import *
 import simpy
@@ -70,7 +70,7 @@ class Top(Module):
             top.setValue("ch2_valid_i", 0)
 
     def dut(self):
-        dut_path = "./hdl/"
+        dut_path = "./../hdl/"
         top_module_file_name = "mcdt.v"
         sim_folder = "simulation"
         top = sim(dut_path, top_module_file_name, sim_folder)
