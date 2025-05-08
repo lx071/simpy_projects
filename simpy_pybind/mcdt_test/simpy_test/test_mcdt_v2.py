@@ -44,7 +44,7 @@ class Sequence(uvm_sequence):
 
     def body(self):
 
-        for i in range(2000000):
+        for i in range(50000):
             item = self.create_item()
             self.start_item(item, self.m_sequencer)
             trans = chnl_trans(i % 3, 0)

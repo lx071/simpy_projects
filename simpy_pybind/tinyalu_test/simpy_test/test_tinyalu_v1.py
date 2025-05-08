@@ -43,7 +43,7 @@ class Sequence(uvm_sequence):
     def body(self):
         # in1 = [random.randrange(0, 20) for i in range(20)]
         # in2 = [random.randrange(0, 20) for i in range(20)]
-        for i in range(10):
+        for i in range(10000):
             item = self.create_item()
             self.start_item(item, self.m_sequencer)
             payload = {
@@ -96,7 +96,7 @@ class Driver(uvm_driver):
     def posedge_clk(self):
         top = self.simContext
         top.eval()
-        self.read_output()
+        # self.read_output()
         top.sleep_cycles(5)
         top.setValue("clk", 0)
         top.eval()

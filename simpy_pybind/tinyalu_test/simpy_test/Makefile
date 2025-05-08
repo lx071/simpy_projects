@@ -1,4 +1,4 @@
-src = test_tinyalu.py
+src = test_tinyalu_v1.py
 
 run:
 	pytest $(src)
