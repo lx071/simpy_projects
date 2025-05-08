@@ -172,21 +172,34 @@ public:
         } else {
             dut->rstn_i.write(1);  // Deassert reset
         }
+
         if(id == 0) {
+            wait(10, SC_NS);
             dut->ch0_data_i.write(data);
             dut->ch0_valid_i.write(1);
+            wait(10, SC_NS);
+            cout << "mcdt_data_o: " << dut->mcdt_data_o.read() << "\tmcdt_val_o: " << dut->mcdt_val_o.read() << "\tmcdt_id_o: " << dut->mcdt_id_o.read() << endl;
+            dut->ch0_data_i.write(0);
+            dut->ch0_valid_i.write(0);
         }
         else if(id == 1) {
+            wait(10, SC_NS);
             dut->ch1_data_i.write(data);
-            dut->ch1_valid_i.write(1);    
+            dut->ch1_valid_i.write(1);
+            wait(10, SC_NS);
+            cout << "mcdt_data_o: " << dut->mcdt_data_o.read() << "\tmcdt_val_o: " << dut->mcdt_val_o.read() << "\tmcdt_id_o: " << dut->mcdt_id_o.read() << endl;
+            dut->ch1_data_i.write(0);
+            dut->ch1_valid_i.write(0);
         }
         else if(id == 2) {
+            wait(10, SC_NS);
             dut->ch2_data_i.write(data);
-            dut->ch2_valid_i.write(1);    
+            dut->ch2_valid_i.write(1);
+            wait(10, SC_NS);
+            cout << "mcdt_data_o: " << dut->mcdt_data_o.read() << "\tmcdt_val_o: " << dut->mcdt_val_o.read() << "\tmcdt_id_o: " << dut->mcdt_id_o.read() << endl;
+            dut->ch2_data_i.write(0);
+            dut->ch2_valid_i.write(0);
         }
-
-        // Simulate 20ns
-        wait(20, SC_NS);
 
         // std::cout << dut->mcdt_data_o.read() << " + " << dut->mcdt_val_o.read() << " = " << dut->mcdt_id_o.read() << std::endl;
     }

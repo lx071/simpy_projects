@@ -9,6 +9,7 @@
 
 using namespace sc_core;
 
+
 int sc_main(int argc, char* argv[]) {
     
     // Pass arguments so Verilated code can see them, e.g. $value$plusargs
@@ -85,24 +86,35 @@ int sc_main(int argc, char* argv[]) {
         id = num % 3;
 
         if(id == 0) {
+            sc_start(10, SC_NS);
             ch0_data_i.write(num % 100);
             ch0_valid_i.write(1);
+            sc_start(10, SC_NS);
+            cout << "mcdt_data_o: " << mcdt_data_o << "\tmcdt_val_o: " << mcdt_val_o << "\tmcdt_id_o: " << mcdt_id_o << endl;
+            ch0_data_i.write(0);
+            ch0_valid_i.write(0);
         }
         else if(id == 1) {
+            sc_start(10, SC_NS);
             ch1_data_i.write(num % 100);
             ch1_valid_i.write(1);
+            sc_start(10, SC_NS);
+            cout << "mcdt_data_o: " << mcdt_data_o << "\tmcdt_val_o: " << mcdt_val_o << "\tmcdt_id_o: " << mcdt_id_o << endl;
+            ch1_data_i.write(0);
+            ch1_valid_i.write(0);
         }
         else if(id == 2) {
+            sc_start(10, SC_NS);
             ch2_data_i.write(num % 100);
             ch2_valid_i.write(1);
+            sc_start(10, SC_NS);
+            cout << "mcdt_data_o: " << mcdt_data_o << "\tmcdt_val_o: " << mcdt_val_o << "\tmcdt_id_o: " << mcdt_id_o << endl;
+            ch2_data_i.write(0);
+            ch2_valid_i.write(0);
         }
         // cout << "num:" << num << endl;
 
-        // Simulate 5ns
-        sc_start(10, SC_NS);
-
         num ++;
-        if (sc_time_stamp() > sc_time(20, SC_NS)) cout << "mcdt_data_o: " << mcdt_data_o << "\tmcdt_val_o: " << mcdt_val_o << "\tmcdt_id_o: " << mcdt_id_o << endl;
 
         if(num > 10) 
         {
