@@ -44,7 +44,7 @@ class Sequence(uvm_sequence):
 
     def body(self):
 
-        for i in range(500000):
+        for i in range(2000000):
             item = self.create_item()
             self.start_item(item, self.m_sequencer)
             trans = chnl_trans(i % 3, 0)
@@ -53,14 +53,6 @@ class Sequence(uvm_sequence):
             }
             item.set_data_ptr(payload)
             yield self.env.process(self.finish_item(item))
-        
-        item = self.create_item()
-        self.start_item(item, self.m_sequencer)
-        payload = {
-            'exit': True
-        }
-        item.set_data_ptr(payload)
-        yield self.env.process(self.finish_item(item))
 
 
 class Sequencer(uvm_sequencer):
@@ -75,18 +67,21 @@ class Driver(uvm_driver):
         super().__init__(env, name)
 
         self.simContext = config_db['simContext']
-
         self.run_thread = self.env.process(self.run())
-        self.bfm_thread = self.env.process(self.bfm())
-
-        self.get_item_e = self.env.event()
-        self.item_done_e = self.env.event()
-        self.exit_e = self.env.event()
-
-        self.ch_id = 0
+        self.time = 0
         self.data = [None]
-        self.pkt_data = 0
-
+        self.init_value()
+    
+    def init_value(self):
+        top = self.simContext
+        top.setValue("clk_i", 0)
+        top.setValue("rstn_i", 0)
+        top.setValue("ch0_data_i", 0)
+        top.setValue("ch0_valid_i", 0)
+        top.setValue("ch1_data_i", 0)
+        top.setValue("ch1_valid_i", 0)
+        top.setValue("ch2_data_i", 0)
+        top.setValue("ch2_valid_i", 0)
 
     def run(self):
         trans = uvm_tlm_generic_payload()
@@ -98,17 +93,12 @@ class Driver(uvm_driver):
 
             payload = trans.get_data_ptr()[0]
 
-            if 'exit' in payload.keys():
-                self.exit_e.succeed()
-                trans.set_response_status(tlm_response_status.TLM_OK_RESPONSE, self.socket.other_socket)
-                return
+            ch_id = payload['data'].ch_id
+            pkt_data = payload['data'].data
+            num = len(pkt_data)
+            for i in range(num):
+                self.chnl_write(ch_id, pkt_data[i])
 
-            self.ch_id = payload['data'].ch_id
-            self.pkt_data = payload['data'].data
-            
-            self.get_item_e.succeed()
-            self.get_item_e = self.env.event()
-            yield self.item_done_e
             self.socket.item_done()
 
     def read_output(self):
@@ -135,6 +125,13 @@ class Driver(uvm_driver):
 
     def chnl_write(self, id, data):
         top = self.simContext
+        self.time = self.time + 5
+        if self.time < 10:
+            reset_value = 0
+        else:
+            reset_value = 1
+        top.setValue("rstn_i", reset_value)
+
         if id == 0:
             self.posedge_clk()
             top.setValue("ch0_data_i", data)
@@ -158,93 +155,31 @@ class Driver(uvm_driver):
             top.setValue("ch2_valid_i", 0)
 
 
-    def bfm(self):
-        top = self.simContext
-
-        num = 0
-        clk_value = 0
-        reset_value = 0
-        time = 0
-
-        top.setValue("clk_i", 0)
-        top.setValue("rstn_i", 0)
-        top.setValue("ch0_data_i", 0)
-        top.setValue("ch0_valid_i", 0)
-        top.setValue("ch1_data_i", 0)
-        top.setValue("ch1_valid_i", 0)
-        top.setValue("ch2_data_i", 0)
-        top.setValue("ch2_valid_i", 0)
-
-        top.eval()
-        
-        while True:
-            top.sleep_cycles(5)
-            time = time + 5
-
-            top.setValue("clk_i", not clk_value)
-            clk_value = not clk_value
-            if clk_value == 0:
-                if time < 30:
-                    reset_value = 0
-                else:
-                    reset_value = 1
-                top.setValue("rstn_i", reset_value)
-                  
-            if clk_value == 1:
-                if reset_value == 0:
-                    top.setValue("ch0_data_i", 0)
-                    top.setValue("ch0_valid_i", 0)
-                    top.setValue("ch1_data_i", 0)
-                    top.setValue("ch1_valid_i", 0)
-                    top.setValue("ch2_data_i", 0)
-                    top.setValue("ch2_valid_i", 0)
-                else:
-                    yield self.get_item_e | self.exit_e
-                    if self.exit_e.triggered:
-                        print("exit break")
-                        break
-                    num = len(self.pkt_data)
-                    for i in range(num):
-                        self.chnl_write(self.ch_id, self.pkt_data[i])
-                    self.item_done_e.succeed()
-                    self.item_done_e = self.env.event() 
-        top.deleteHandle()
-
-        # config_db["cycle_event"].set()
-        # yield self.env.timeout(0)
-        # config_db["cycle_event"].clear()
-        # yield self.env.timeout(0)
-
-        # top.sleep_cycles(1)
-
-
 class Monitor(uvm_monitor):
     
     def __init__(self, env, name):
         super().__init__(env, name)
 
         self.simContext = config_db['simContext']
-        self.bfm_thread = self.env.process(self.bfm())
+        self.run_thread = self.env.process(self.run())
 
 
-    def bfm(self):
+    def read_output(self):
         top = self.simContext
+        top.eval()
+        # read outputs
+        data = top.getValue("mcdt_data_o")
+        val = top.getValue("mcdt_val_o")
+        id = top.getValue("mcdt_id_o")
+        if val == 1:
+            print("data: %8x, val: %0d, id: %0d" %(data, val, id))
 
+
+    def run(self):
         cycle_event = config_db["cycle_event"]
-
         while True:
             yield self.env.process(cycle_event.wait())
-            clk_value = top.getValue("clk")
-            reset_value = top.getValue("reset_n")
-            A_value = top.getValue("A")
-            B_value = top.getValue("B")
-            op_value = top.getValue("op")
-            result_value = top.getValue("result")
-            start_value = top.getValue("start")
-            done_value = top.getValue("done")
-            time = top.sc_time_stamp()
-            print("time: %0d, clk: %0d, reset_n: %0d, A: %0d, B: %0d, op: %0d, result: %0d, start: %0d, done: %0d" 
-                    %(time, clk_value, reset_value, A_value, B_value, op_value, result_value, start_value, done_value))
+            self.read_output()
 
 
 class DUT(Module):
@@ -273,7 +208,7 @@ class Top(Module):
         config_db["simContext"] = self.simContext
         config_db["cycle_event"] = Event(self.env)
 
-        # self.monitor = Monitor(self.env, 'mon')
+        self.monitor = Monitor(self.env, 'mon')
         self.sequencer = Sequencer(self.env, 'sqr')
         self.driver = Driver(self.env, 'drv')
 

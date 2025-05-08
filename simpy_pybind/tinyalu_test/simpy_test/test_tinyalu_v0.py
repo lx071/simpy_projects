@@ -43,7 +43,7 @@ class Sequence(uvm_sequence):
     def body(self):
         # in1 = [random.randrange(0, 20) for i in range(20)]
         # in2 = [random.randrange(0, 20) for i in range(20)]
-        for i in range(4000000):
+        for i in range(100000):
             item = self.create_item()
             self.start_item(item, self.m_sequencer)
             payload = {
