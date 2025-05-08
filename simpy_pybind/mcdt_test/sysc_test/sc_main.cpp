@@ -13,28 +13,6 @@
 
 using namespace sc_core;
 
-// module mcdt (
-// input                 clk_i,
-// input                 rstn_i,
-
-// input   [31:0]        ch0_data_i,
-// input                 ch0_valid_i,
-// output                ch0_ready_o,
-// output  [5:0]         ch0_margin_o,
-
-// input   [31:0]        ch1_data_i,
-// input                 ch1_valid_i,
-// output                ch1_ready_o,
-// output  [5:0]         ch1_margin_o,
-
-// input   [31:0]        ch2_data_i,
-// input                 ch2_valid_i,
-// output                ch2_ready_o,
-// output  [5:0]         ch2_margin_o,
-
-// output  [31:0]        mcdt_data_o,
-// output                mcdt_val_o,
-// output  [1:0]         mcdt_id_o);
 
 class DUT: public sc_module {
 public:
@@ -127,8 +105,8 @@ public:
 
         uvm_tlm_generic_payload *item;
         
-        int num = 100;
-        int item_num = 1;
+        int num = 2000000;
+        int item_num = 10;
         for(int i = 0; i < num; i ++) {
             item = create_item();
             start_item(item, m_sequencer);
@@ -136,10 +114,9 @@ public:
             unsigned char arr[item_num*2];
 
             for (int j = 0; j < item_num; j = j + 1) {
-                arr[j * 2] = i % 3;
-                arr[j * 2 + 1] = i % 100;
+                arr[j * 2] = (i * item_num + j) % 3;
+                arr[j * 2 + 1] = (i * item_num + j) % 100;
             }
-            // unsigned char arr[] = {0x1, 0x2, 0x3, 0x4, 0x5};
             unsigned char *payload_data = arr;
 
             // set data
@@ -178,7 +155,7 @@ public:
             dut->ch0_data_i.write(data);
             dut->ch0_valid_i.write(1);
             wait(10, SC_NS);
-            cout << "mcdt_data_o: " << dut->mcdt_data_o.read() << "\tmcdt_val_o: " << dut->mcdt_val_o.read() << "\tmcdt_id_o: " << dut->mcdt_id_o.read() << endl;
+            // if(dut->mcdt_val_o.read() == 1) cout << "mcdt_data_o: " << dut->mcdt_data_o.read() << "\tmcdt_val_o: " << dut->mcdt_val_o.read() << "\tmcdt_id_o: " << dut->mcdt_id_o.read() << endl;
             dut->ch0_data_i.write(0);
             dut->ch0_valid_i.write(0);
         }
@@ -187,7 +164,7 @@ public:
             dut->ch1_data_i.write(data);
             dut->ch1_valid_i.write(1);
             wait(10, SC_NS);
-            cout << "mcdt_data_o: " << dut->mcdt_data_o.read() << "\tmcdt_val_o: " << dut->mcdt_val_o.read() << "\tmcdt_id_o: " << dut->mcdt_id_o.read() << endl;
+            // if(dut->mcdt_val_o.read() == 1) cout << "mcdt_data_o: " << dut->mcdt_data_o.read() << "\tmcdt_val_o: " << dut->mcdt_val_o.read() << "\tmcdt_id_o: " << dut->mcdt_id_o.read() << endl;
             dut->ch1_data_i.write(0);
             dut->ch1_valid_i.write(0);
         }
@@ -196,7 +173,7 @@ public:
             dut->ch2_data_i.write(data);
             dut->ch2_valid_i.write(1);
             wait(10, SC_NS);
-            cout << "mcdt_data_o: " << dut->mcdt_data_o.read() << "\tmcdt_val_o: " << dut->mcdt_val_o.read() << "\tmcdt_id_o: " << dut->mcdt_id_o.read() << endl;
+            // if(dut->mcdt_val_o.read() == 1) cout << "mcdt_data_o: " << dut->mcdt_data_o.read() << "\tmcdt_val_o: " << dut->mcdt_val_o.read() << "\tmcdt_id_o: " << dut->mcdt_id_o.read() << endl;
             dut->ch2_data_i.write(0);
             dut->ch2_valid_i.write(0);
         }
@@ -219,6 +196,7 @@ public:
             for(int i = 0; i < len / 2; i ++) {
                 drive_transfer(int(data[i * 2]), int(data[i * 2 + 1]));
             }
+            // std::cout << std::endl;
             seq_item_port->item_done(trans, delay);
         }
     }
