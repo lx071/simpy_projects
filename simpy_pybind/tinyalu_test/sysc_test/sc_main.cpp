@@ -105,12 +105,12 @@ public:
     }
 };
 
-class driver: public uvm_driver {
+class Driver: public uvm_driver {
 public:
     uvm_tlm_generic_payload *trans;
     DUT *dut;
     Vtinyalu *top;
-    driver(sc_core::sc_module_name name, DUT *dut) 
+    Driver(sc_core::sc_module_name name, DUT *dut) 
     : uvm_driver(name), dut(dut) {
         trans = new uvm_tlm_generic_payload("trans");
         top = dut->top;
@@ -135,14 +135,12 @@ public:
         // std::cout << dut->A.read() << " + " << dut->B.read() << " = " << dut->result.read() << std::endl;
     }
 
-    void run_phase() override { 
+    void run() override { 
 
-        sc_core::sc_time delay(10, SC_NS);
-        
         // 测试场景
         while(true) {
             // 获取下一个事务
-            seq_item_port->get_next_item(trans, delay);
+            seq_item_port->get_next_item(trans);
 
             unsigned char* data = trans->get_data_ptr();
             unsigned int len = trans->get_data_length();
@@ -150,7 +148,7 @@ public:
             for(int i = 0; i < len / 3; i ++) {
                 drive_transfer(int(data[i * 3]), int(data[i * 3 + 1]), int(data[i * 3 + 2]));
             }
-            seq_item_port->item_done(trans, delay);
+            seq_item_port->item_done(trans);
         }
     }
 };
@@ -164,7 +162,7 @@ int sc_main(int argc, char* argv[]) {
     // 创建模块实例
     DUT dut("dut");
     uvm_sequencer sqr("Sequencer");
-    driver drv("Driver", &dut);
+    Driver drv("Driver", &dut);
     sequence seq("Sequence");
 
     // 连接端口

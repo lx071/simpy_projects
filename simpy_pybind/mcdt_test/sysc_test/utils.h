@@ -14,10 +14,8 @@ class uvm_seq_item_if : public sc_core::sc_interface {
     uvm_sequencer& imp;
 public:
     uvm_seq_item_if(uvm_sequencer& comp);
-    void get_next_item(uvm_tlm_generic_payload*& trans,
-                     sc_core::sc_time delay);
-    void item_done(uvm_tlm_generic_payload* trans,
-                 sc_core::sc_time delay);
+    void get_next_item(uvm_tlm_generic_payload*& trans);
+    void item_done(uvm_tlm_generic_payload* trans);
 };
 
 
@@ -108,7 +106,7 @@ public:
     }
 
     // Sequencer方法实现
-    void get_next_item(uvm_tlm_generic_payload*& trans, sc_core::sc_time delay) 
+    void get_next_item(uvm_tlm_generic_payload*& trans) 
     {
         // std::cout << "Getting next item at " 
         //         << sc_core::sc_time_stamp() 
@@ -116,8 +114,7 @@ public:
         trans = m_req_fifo.read();
     }
 
-    void item_done(uvm_tlm_generic_payload* trans,
-                            sc_core::sc_time delay) 
+    void item_done(uvm_tlm_generic_payload* trans) 
     {
         // std::cout << "Item done at " 
         //         << sc_core::sc_time_stamp() 
@@ -217,16 +214,14 @@ public:
 uvm_seq_item_if::uvm_seq_item_if(uvm_sequencer& comp) 
     : imp(comp) {}
 
-void uvm_seq_item_if::get_next_item(uvm_tlm_generic_payload*& trans,
-                                           sc_core::sc_time delay) 
+void uvm_seq_item_if::get_next_item(uvm_tlm_generic_payload*& trans) 
 {
-    imp.get_next_item(trans, delay);
+    imp.get_next_item(trans);
 }
 
-void uvm_seq_item_if::item_done(uvm_tlm_generic_payload* trans,
-                                       sc_core::sc_time delay) 
+void uvm_seq_item_if::item_done(uvm_tlm_generic_payload* trans) 
 {
-    imp.item_done(trans, delay);
+    imp.item_done(trans);
 }
 
 #endif // UTILS_H

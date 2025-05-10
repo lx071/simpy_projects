@@ -183,12 +183,10 @@ public:
 
     void run_phase() override { 
 
-        sc_core::sc_time delay(10, SC_NS);
-        
         // 测试场景
         while(true) {
             // 获取下一个事务
-            seq_item_port->get_next_item(trans, delay);
+            seq_item_port->get_next_item(trans);
 
             unsigned char* data = trans->get_data_ptr();
             unsigned int len = trans->get_data_length();
@@ -197,7 +195,7 @@ public:
                 drive_transfer(int(data[i * 2]), int(data[i * 2 + 1]));
             }
             // std::cout << std::endl;
-            seq_item_port->item_done(trans, delay);
+            seq_item_port->item_done(trans);
         }
     }
 };
